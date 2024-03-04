@@ -2,10 +2,10 @@
 # date: 2024-3-4
 import torch
 
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
 
 # todo 训练器
-class myTrainer(nnUNetTrainer):
+class myTrainer(nnUNetTrainerNoDeepSupervision):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         """
