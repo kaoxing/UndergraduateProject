@@ -263,7 +263,7 @@ class nnUNetTrainer(object):
                                    dataset_json,
                                    configuration_manager: ConfigurationManager,
                                    num_input_channels,
-                                   enable_deep_supervision: bool = True) -> nn.Module:
+                                   enable_deep_supervision: bool = True, muti_task: bool = False) -> nn.Module:
         """
         his is where you build the architecture according to the plans. There is no obligation to use
         get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what

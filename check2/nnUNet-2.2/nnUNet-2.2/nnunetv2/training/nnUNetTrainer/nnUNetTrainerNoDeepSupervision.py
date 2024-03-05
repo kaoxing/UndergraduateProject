@@ -21,6 +21,9 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label,
                                   dice_class=MemoryEfficientSoftDiceLoss)
+        # 边界水平集多任务学习loss START
+
+        # 边界水平集多任务学习loss END
         return loss
 
     def _get_deep_supervision_scales(self):
