@@ -1,11 +1,11 @@
-# author kaoxing
+# author: kaoxing
+# date: 2021/7/20
 
-# 此脚本搭配resample_data_or_seg_to_shape使用，用于将原始标签数据进行重采样，以符合nnUNet的数据
+# 此脚本搭配resample_data_or_seg_to_shape使用，用于将原始边缘标签数据进行重采样，以符合nnUNet的数据
 import os
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 import multiprocessing
 from nnUNet.nnUNet.nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape
 
@@ -76,5 +76,16 @@ def preprocess(p_nums):
 
 if __name__ == '__main__':
     t = time.time()
-    preprocess(2)
+    preprocess(1)
     print("cost:", time.time() - t)
+
+    # 读取npz文件并用matplotlib显示
+    # file_path = '../nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/gt_segmentations_edges/ct_train_1001.npz'
+    # data = np.load(file_path)['data'] # data.shape : [6, 1, 363, 415, 415]
+    # temp = data[0][0][150]
+    # for i in range(5):
+    #     temp += data[i+1][0][150]
+    # plt.imshow(temp, cmap='gray')
+    # plt.show()
+
+
