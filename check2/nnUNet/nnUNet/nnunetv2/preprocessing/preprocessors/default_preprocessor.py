@@ -48,9 +48,19 @@ class DefaultPreprocessor(object):
         has_seg = seg is not None
 
         # apply transpose_forward, this also needs to be applied to the spacing!
+        # import matplotlib.pyplot as plt
+        # plt.imshow(data[0][150],cmap='gray',)
+        # plt.show()
+        # print([0, *[i + 1 for i in plans_manager.transpose_forward]])
         data = data.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
+        # plt.imshow(data[0][150],cmap='gray')
+        # plt.show()
         if seg is not None:
+            # plt.imshow(seg[0][150],cmap='gray')
+            # plt.show()
             seg = seg.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
+            # plt.imshow(seg[0][150],cmap='gray')
+            # plt.show()
         original_spacing = [properties['spacing'][i] for i in plans_manager.transpose_forward]
 
         # crop, remember to store size before cropping!
@@ -79,9 +89,13 @@ class DefaultPreprocessor(object):
 
         # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
         #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
+
+        # 按照plan中的target_spacing对原数据进行重采样
         old_shape = data.shape[1:]
         data = configuration_manager.resampling_fn_data(data, new_shape, original_spacing, target_spacing)
         seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
+
+
         if self.verbose:
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')

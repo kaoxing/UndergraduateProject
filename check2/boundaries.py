@@ -78,7 +78,7 @@ def get_boundaries(temp_paths, lock, i):
         sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge'))
         # 以npz形式保存分开的边缘图像
         edges_divide = np.array(edges_divide)
-        np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), *edges_divide)
+        np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), data=edges_divide)
 
 
 def boundaries(p_num):
@@ -102,8 +102,7 @@ def boundaries(p_num):
 if __name__ == '__main__':
     t = time.time()
     boundaries(4)
-    print("cost:",time.time() - t)
-
+    print("cost:", time.time() - t)
 
     # 读取npz文件并用matplotlib显示
     # import matplotlib.pyplot as plt
@@ -139,6 +138,3 @@ if __name__ == '__main__':
     # data_array = sitk.GetArrayFromImage(data)
     # plt.imshow(data_array[150], cmap='gray')
     # plt.show()
-
-
-
