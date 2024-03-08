@@ -19,15 +19,15 @@ def merge_boundaries_with_seg(path_seg, path_edges):
     edges_array = np.load(path_edges)['data']  # [363, 6, 512, 512]
     # 将边缘标签加入分割标签中
     for i in range(len(seg_array)):
-        seg = seg_array[i]
+        temp = seg_array[i]
         edges = edges_array[i]
         for j in range(seg_classes):
             value = j + 1
-            seg[edges[j] == 1] = seg_classes+value
+            temp[edges[j] == 1] = seg_classes+value
     # 保存为.nii.gz文件
-    seg = sitk.GetImageFromArray(seg_array)
-    seg.CopyInformation(seg)
-    sitk.WriteImage(seg, path_seg)
+    seg_new = sitk.GetImageFromArray(seg_array)
+    seg_new.CopyInformation(seg)
+    sitk.WriteImage(seg_new, path_seg)
 
 
 
