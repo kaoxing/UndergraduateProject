@@ -12,20 +12,22 @@ import matplotlib.pyplot as plt
 
 
 
-def grow_inner_edge(img):
+def grow_inner_edge(edge, seg):
     # 将提取出的边缘扩张的更粗
-    ret = np.zeros(img.shape, dtype=np.uint16)
+    ret = np.zeros(edge.shape, dtype=bool)
     # 循环实现
     # for i in range(1, img.shape[0] - 1):
     #     for j in range(1, img.shape[1] - 1):
     #         if img[i, j] == 1:
     #             ret[i - 1:i + 2, j - 1:j + 2] = 1
     # 高效实现
-    ret[1:-1, 1:-1] = img[:-2, :-2] | img[:-2, 1:-1] | img[:-2, 2:] | img[1:-1, :-2] | img[1:-1, 1:-1] | img[1:-1, 2:] | \
-                        img[2:, :-2] | img[2:, 1:-1] | img[2:, 2:]
-    # 转为bool类型
-    ret = ret.astype(bool)
-    return ret
+    num = 3 # 扩张的层数
+    for i in range(num):
+        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[1:-1, 2:] | \
+                      edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
+    # 仅保留向内部扩张的部分
+    edge[seg == False] = False
+    return edge
 
 
 def task(img):
@@ -55,26 +57,26 @@ def task(img):
     aa[...] = False
     aa[img == 6] = True
     # 六种类型的标签分别提取出来
-    lv_edge = skimage.segmentation.find_boundaries(lv)
-    rv_edge = skimage.segmentation.find_boundaries(rv)
-    la_edge = skimage.segmentation.find_boundaries(la)
-    ra_edge = skimage.segmentation.find_boundaries(ra)
-    myo_edge = skimage.segmentation.find_boundaries(myo)
-    aa_edge = skimage.segmentation.find_boundaries(aa)
-    # 将边缘扩张的更粗
-    lv_edge = grow_inner_edge(lv_edge)
-    rv_edge = grow_inner_edge(rv_edge)
-    la_edge = grow_inner_edge(la_edge)
-    ra_edge = grow_inner_edge(ra_edge)
-    myo_edge = grow_inner_edge(myo_edge)
-    aa_edge = grow_inner_edge(aa_edge)
+    lv_edge = skimage.segmentation.find_boundaries(lv, mode='inner')
+    rv_edge = skimage.segmentation.find_boundaries(rv, mode='inner')
+    la_edge = skimage.segmentation.find_boundaries(la, mode='inner')
+    ra_edge = skimage.segmentation.find_boundaries(ra, mode='inner')
+    myo_edge = skimage.segmentation.find_boundaries(myo, mode='inner')
+    aa_edge = skimage.segmentation.find_boundaries(aa, mode='inner')
+    # 将边缘向内部扩张
+    lv_edge = grow_inner_edge(lv_edge,lv)
+    rv_edge = grow_inner_edge(rv_edge,rv)
+    la_edge = grow_inner_edge(la_edge,la)
+    ra_edge = grow_inner_edge(ra_edge,ra)
+    myo_edge = grow_inner_edge(myo_edge,myo)
+    aa_edge = grow_inner_edge(aa_edge,aa)
     # 将六种类型的边缘合并，以供检查
     label_edge = lv_edge | rv_edge | la_edge | ra_edge | myo_edge | aa_edge
-    ret1 = np.zeros(label_edge.shape, dtype=np.uint16)
+    ret1 = np.zeros(label_edge.shape, dtype=np.uint8)
     ret1[label_edge] = 1
     # 六种不同类型的边缘分别存储
-    ret2 = [lv_edge.astype(np.uint16), rv_edge.astype(np.uint16), la_edge.astype(np.uint16), ra_edge.astype(np.uint16),
-            myo_edge.astype(np.uint16), aa_edge.astype(np.uint16)]
+    ret2 = [lv_edge.astype(np.uint8), rv_edge.astype(np.uint8), la_edge.astype(np.uint8), ra_edge.astype(np.uint8),
+            myo_edge.astype(np.uint8), aa_edge.astype(np.uint8)]
     return ret1, ret2
 
 
@@ -99,7 +101,7 @@ def get_boundaries(temp_paths, lock, i):
         edges_merge = np.array(edges_merge)
         edges_merge = sitk.GetImageFromArray(edges_merge)
         edges_merge.CopyInformation(imgs)
-        sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', 'bigger.nii.gz'))
+        sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.nii.gz'))
         # 以npz形式保存分开的边缘图像
         edges_divide = np.array(edges_divide)
         np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), data=edges_divide)
