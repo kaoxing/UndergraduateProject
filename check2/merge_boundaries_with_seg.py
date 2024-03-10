@@ -11,7 +11,7 @@ edges_value = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6} # 1: lv, 2: rv, 3: la, 4: ra,
 edges_value = {k: v + seg_classes for k, v in edges_value.items()}
 
 
-def merge_boundaries_with_seg(path_seg, path_edges):
+def task(path_seg, path_edges):
     # 读取分割标签 .nii.gz文件
     seg = sitk.ReadImage(path_seg)
     seg_array = sitk.GetArrayFromImage(seg)  # [363, 512, 512]
@@ -40,7 +40,7 @@ def merge_boundaries_with_seg(path_seg, path_edges):
     files_edges = [os.path.join(path_edges, file) for file in files_edges]
 
     for i in range(len(files_seg)):
-        merge_boundaries_with_seg(files_seg[i], files_edges[i])
+        task(files_seg[i], files_edges[i])
         print(f"{i+1}/{len(files_seg)} is done.")
 
 if __name__ == '__main__':
