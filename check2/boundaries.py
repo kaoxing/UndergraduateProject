@@ -5,10 +5,27 @@ import numpy as np
 import multiprocessing
 import skimage
 import SimpleITK as sitk
+import matplotlib.pyplot as plt
 
 # 标签边缘value为0，向内部value逐层递增，向外部value逐层递减，以实现类似山峰的效果
 
 label_dir = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/labelsTr'
+
+
+def grow_inner_edge(img):
+    # 将提取出的边缘扩张的更粗
+    ret = np.zeros(img.shape, dtype=np.uint16)
+    # 循环实现
+    # for i in range(1, img.shape[0] - 1):
+    #     for j in range(1, img.shape[1] - 1):
+    #         if img[i, j] == 1:
+    #             ret[i - 1:i + 2, j - 1:j + 2] = 1
+    # 高效实现
+    ret[1:-1, 1:-1] = img[:-2, :-2] | img[:-2, 1:-1] | img[:-2, 2:] | img[1:-1, :-2] | img[1:-1, 1:-1] | img[1:-1, 2:] | \
+                        img[2:, :-2] | img[2:, 1:-1] | img[2:, 2:]
+    # 转为bool类型
+    ret = ret.astype(bool)
+    return ret
 
 
 def task(img):
@@ -44,6 +61,13 @@ def task(img):
     ra_edge = skimage.segmentation.find_boundaries(ra)
     myo_edge = skimage.segmentation.find_boundaries(myo)
     aa_edge = skimage.segmentation.find_boundaries(aa)
+    # 将边缘扩张的更粗
+    lv_edge = grow_inner_edge(lv_edge)
+    rv_edge = grow_inner_edge(rv_edge)
+    la_edge = grow_inner_edge(la_edge)
+    ra_edge = grow_inner_edge(ra_edge)
+    myo_edge = grow_inner_edge(myo_edge)
+    aa_edge = grow_inner_edge(aa_edge)
     # 将六种类型的边缘合并，以供检查
     label_edge = lv_edge | rv_edge | la_edge | ra_edge | myo_edge | aa_edge
     ret1 = np.zeros(label_edge.shape, dtype=np.uint16)
@@ -75,7 +99,7 @@ def get_boundaries(temp_paths, lock, i):
         edges_merge = np.array(edges_merge)
         edges_merge = sitk.GetImageFromArray(edges_merge)
         edges_merge.CopyInformation(imgs)
-        sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge'))
+        sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', 'bigger.nii.gz'))
         # 以npz形式保存分开的边缘图像
         edges_divide = np.array(edges_divide)
         np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), data=edges_divide)
@@ -101,7 +125,7 @@ def boundaries(p_num):
 
 if __name__ == '__main__':
     t = time.time()
-    boundaries(4)
+    boundaries(6)
     print("cost:", time.time() - t)
 
     # 读取npz文件并用matplotlib显示
