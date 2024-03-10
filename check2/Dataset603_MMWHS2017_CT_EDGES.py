@@ -9,13 +9,15 @@ import shutil
 from pathlib import Path
 from tqdm import tqdm
 import SimpleITK as sitk
+from boundaries import boundaries
+from merge_boundaries_with_seg import merge_boundaries_with_seg
 
 from check2.generate_dataset_json import generate_dataset_json
 
 nnUNet_raw = os.environ.get('nnUNet_raw')
 nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
 nnUNet_results = os.environ.get('nnUNet_results')
-dataset_name = f"Dataset602_MMWHS2017_CT"
+dataset_name = f"Dataset603_MMWHS2017_CT"
 out_dir = Path(nnUNet_raw.replace('"', "")) / dataset_name
 out_train_dir = out_dir / "imagesTr"
 out_labels_dir = out_dir / "labelsTr"
@@ -91,6 +93,12 @@ def generate_json():
             "RA": 4,
             "Myo": 5,
             "AA": 6,
+            "LV_edges": 7,
+            "RV_edges": 8,
+            "LA_edges": 9,
+            "RA_edges": 10,
+            "Myo_edges": 11,
+            "AA_edges": 12,
         },
         file_ending=".nii.gz",
         num_training_cases=20,
@@ -103,3 +111,13 @@ if __name__ == '__main__':
     copy_files()
     modify_label_value()
     generate_json()
+
+    # 生成边缘标签
+    print("Start to generate boundaries....")
+    boundaries(6, out_labels_dir)
+
+    # 将边缘标签合并到原始标签中
+    print("Start to merge boundaries with seg....")
+    merge_boundaries_with_seg(out_labels_dir, out_labels_dir.replace('labelsTr', 'labelsTr_edge'))
+    print("All done.")
+

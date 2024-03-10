@@ -29,12 +29,7 @@ def merge_boundaries_with_seg(path_seg, path_edges):
     seg_new.CopyInformation(seg)
     sitk.WriteImage(seg_new, path_seg)
 
-
-
-
-if __name__ == '__main__':
-    path_seg = r"..\nnUNet_Data\nnUNet_raw\Dataset602_MMWHS2017_CT\labelsTr"
-    path_edges = r"..\nnUNet_Data\nnUNet_raw\Dataset602_MMWHS2017_CT\labelsTr_edge"
+def merge_boundaries_with_seg(path_seg, path_edges):
 
     files_seg = os.listdir(path_seg)
 
@@ -47,3 +42,8 @@ if __name__ == '__main__':
     for i in range(len(files_seg)):
         merge_boundaries_with_seg(files_seg[i], files_edges[i])
         print(f"{i+1}/{len(files_seg)} is done.")
+
+if __name__ == '__main__':
+    path_seg = r"..\nnUNet_Data\nnUNet_raw\Dataset602_MMWHS2017_CT\labelsTr"
+    path_edges = r"..\nnUNet_Data\nnUNet_raw\Dataset602_MMWHS2017_CT\labelsTr_edge"
+    merge_boundaries_with_seg(path_seg, path_edges)

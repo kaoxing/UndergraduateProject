@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # 标签边缘value为0，向内部value逐层递增，向外部value逐层递减，以实现类似山峰的效果
 
-label_dir = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/labelsTr'
+
 
 
 def grow_inner_edge(img):
@@ -105,7 +105,7 @@ def get_boundaries(temp_paths, lock, i):
         np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), data=edges_divide)
 
 
-def boundaries(p_num):
+def boundaries(p_num, label_dir):
     os.makedirs(label_dir.replace('labelsTr', 'labelsTr_edge'), exist_ok=True)
     label_names = os.listdir(label_dir)
     label_paths = [os.path.join(label_dir, label_name) for label_name in label_names]
@@ -120,12 +120,11 @@ def boundaries(p_num):
         p.start()
     for p in processes:
         p.join()
-    print("All processes are done.")
 
 
 if __name__ == '__main__':
     t = time.time()
-    boundaries(6)
+    boundaries(6, label_dir)
     print("cost:", time.time() - t)
 
     # 读取npz文件并用matplotlib显示
