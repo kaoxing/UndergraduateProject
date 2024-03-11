@@ -1,13 +1,34 @@
 import os
+import time
+
 import numpy as np
 import multiprocessing
 import skimage
 import SimpleITK as sitk
-
+import matplotlib.pyplot as plt
 
 # 标签边缘value为0，向内部value逐层递增，向外部value逐层递减，以实现类似山峰的效果
 
-label_dir = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/labelsTr'
+
+
+
+def grow_inner_edge(edge, seg):
+    # 将提取出的边缘扩张的更粗
+    ret = np.zeros(edge.shape, dtype=bool)
+    # 循环实现
+    # for i in range(1, img.shape[0] - 1):
+    #     for j in range(1, img.shape[1] - 1):
+    #         if img[i, j] == 1:
+    #             ret[i - 1:i + 2, j - 1:j + 2] = 1
+    # 高效实现
+    num = 3 # 扩张的层数
+    for i in range(num):
+        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[1:-1, 2:] | \
+                      edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
+    # 仅保留向内部扩张的部分
+    edge[seg == False] = False
+    return edge
+
 
 def task(img):
     # 将每种类别单独提取为一副图像
@@ -36,17 +57,28 @@ def task(img):
     aa[...] = False
     aa[img == 6] = True
     # 六种类型的标签分别提取出来
-    lv_edge = skimage.segmentation.find_boundaries(lv)
-    rv_edge = skimage.segmentation.find_boundaries(rv)
-    la_edge = skimage.segmentation.find_boundaries(la)
-    ra_edge = skimage.segmentation.find_boundaries(ra)
-    myo_edge = skimage.segmentation.find_boundaries(myo)
-    aa_edge = skimage.segmentation.find_boundaries(aa)
-    # 将六种类型的边缘合并
+    lv_edge = skimage.segmentation.find_boundaries(lv, mode='inner')
+    rv_edge = skimage.segmentation.find_boundaries(rv, mode='inner')
+    la_edge = skimage.segmentation.find_boundaries(la, mode='inner')
+    ra_edge = skimage.segmentation.find_boundaries(ra, mode='inner')
+    myo_edge = skimage.segmentation.find_boundaries(myo, mode='inner')
+    aa_edge = skimage.segmentation.find_boundaries(aa, mode='inner')
+    # 将边缘向内部扩张
+    lv_edge = grow_inner_edge(lv_edge,lv)
+    rv_edge = grow_inner_edge(rv_edge,rv)
+    la_edge = grow_inner_edge(la_edge,la)
+    ra_edge = grow_inner_edge(ra_edge,ra)
+    myo_edge = grow_inner_edge(myo_edge,myo)
+    aa_edge = grow_inner_edge(aa_edge,aa)
+    # 将六种类型的边缘合并，以供检查
     label_edge = lv_edge | rv_edge | la_edge | ra_edge | myo_edge | aa_edge
-    ret = np.zeros(label_edge.shape, dtype=np.uint16)
-    ret[label_edge] = 1
-    return ret
+    ret1 = np.zeros(label_edge.shape, dtype=np.uint8)
+    ret1[label_edge] = 1
+    # 六种不同类型的边缘分别存储
+    ret2 = [lv_edge.astype(np.uint8), rv_edge.astype(np.uint8), la_edge.astype(np.uint8), ra_edge.astype(np.uint8),
+            myo_edge.astype(np.uint8), aa_edge.astype(np.uint8)]
+    return ret1, ret2
+
 
 def get_boundaries(temp_paths, lock, i):
     while True:
@@ -59,18 +91,24 @@ def get_boundaries(temp_paths, lock, i):
         lock.release()
         imgs = sitk.ReadImage(path)
         imgs_array = sitk.GetArrayFromImage(imgs)
-        label_edges = []
+        edges_merge = []
+        edges_divide = []
         for img in imgs_array:
-            label_edges.append(task(img))
-        label_edges = np.array(label_edges)
-        label_edges = sitk.GetImageFromArray(label_edges)
-        label_edges.CopyInformation(imgs)
-        sitk.WriteImage(label_edges, path.replace('labelsTr', 'labelsTr_edge'))
-        # time.sleep(1)
+            edge_merge, edge_divide = task(img)
+            edges_merge.append(edge_merge)
+            edges_divide.append(edge_divide)
+        # 保存合并的边缘图像
+        edges_merge = np.array(edges_merge)
+        edges_merge = sitk.GetImageFromArray(edges_merge)
+        edges_merge.CopyInformation(imgs)
+        sitk.WriteImage(edges_merge, path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.nii.gz'))
+        # 以npz形式保存分开的边缘图像
+        edges_divide = np.array(edges_divide)
+        np.savez_compressed(path.replace('labelsTr', 'labelsTr_edge').replace('.nii.gz', '.npz'), data=edges_divide)
 
 
-
-def boundaries(p_num = multiprocessing.cpu_count()):
+def boundaries(p_num, label_dir):
+    os.makedirs(label_dir.replace('labelsTr', 'labelsTr_edge'), exist_ok=True)
     label_names = os.listdir(label_dir)
     label_paths = [os.path.join(label_dir, label_name) for label_name in label_names]
     share_paths = multiprocessing.Manager().list(label_paths)
@@ -84,9 +122,44 @@ def boundaries(p_num = multiprocessing.cpu_count()):
         p.start()
     for p in processes:
         p.join()
-    print("temp_paths:", temp_paths)
 
 
 if __name__ == '__main__':
+    t = time.time()
+    boundaries(6, label_dir)
+    print("cost:", time.time() - t)
 
-    boundaries(4)
+    # 读取npz文件并用matplotlib显示
+    # import matplotlib.pyplot as plt
+    # import numpy as np
+    # file_path = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/labelsTr_edge/ct_train_1001.npz'
+    # data = np.load(file_path)
+    # key = 'arr_150'
+    # temp = data[key][0]
+    # plt.imshow(data[key][0], cmap='gray')
+    # plt.show()
+    # plt.imshow(data[key][1], cmap='gray')
+    # plt.show()
+    # plt.imshow(data[key][2], cmap='gray')
+    # plt.show()
+    # plt.imshow(data[key][3], cmap='gray')
+    # plt.show()
+    # plt.imshow(data[key][4], cmap='gray')
+    # plt.show()
+    # plt.imshow(data[key][5], cmap='gray')
+    # plt.show()
+    # file_path = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/labelsTr_edge/ct_train_1001.nii.gz'
+    # data = sitk.ReadImage(file_path)
+    # data_array = sitk.GetArrayFromImage(data)
+    # plt.imshow(data_array[150], cmap='gray')
+    # plt.show()
+    # file_path = '../nnUNet_Data/nnUNet_raw/Dataset602_MMWHS2017_CT/imagesTr/ct_train_1001_0000.nii.gz'
+    # data = sitk.ReadImage(file_path)
+    # data_array = sitk.GetArrayFromImage(data)
+    # plt.imshow(data_array[150], cmap='gray')
+    # plt.show()
+    # file_path = '../nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/gt_segmentations/ct_train_1001.nii.gz'
+    # data = sitk.ReadImage(file_path)
+    # data_array = sitk.GetArrayFromImage(data)
+    # plt.imshow(data_array[150], cmap='gray')
+    # plt.show()
