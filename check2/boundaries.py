@@ -70,7 +70,7 @@ def get_boundaries(temp_paths, lock, i):
 
 
 
-def boundaries(p_num):
+def boundaries(p_num = multiprocessing.cpu_count()):
     label_names = os.listdir(label_dir)
     label_paths = [os.path.join(label_dir, label_name) for label_name in label_names]
     share_paths = multiprocessing.Manager().list(label_paths)
@@ -88,4 +88,5 @@ def boundaries(p_num):
 
 
 if __name__ == '__main__':
+
     boundaries(4)
