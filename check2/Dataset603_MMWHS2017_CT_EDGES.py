@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     # 生成边缘标签
     print("Start to generate boundaries....")
-    boundaries(6, str(out_labels_dir))
+    boundaries(2, str(out_labels_dir))
 
     # 将边缘标签合并到原始标签中
     print("Start to merge boundaries with seg....")
