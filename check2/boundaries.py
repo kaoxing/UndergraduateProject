@@ -20,12 +20,10 @@ def grow_inner_edge(edge, seg):
     #         if img[i, j] == 1:
     #             ret[i - 1:i + 2, j - 1:j + 2] = 1
     # 高效实现
-    num = 3  # 扩张的层数
+    num = 1 # 扩张的层数
     for i in range(num):
-        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[
-                                                                                                                   1:-1,
-                                                                                                                   2:] | \
-                           edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
+        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[1:-1, 2:] | \
+                      edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
     # 仅保留向内部扩张的部分
     edge[seg == False] = False
     return edge
