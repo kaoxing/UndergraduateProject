@@ -470,37 +470,44 @@ class nnUNetTrainer(object):
             return
 
         if self.local_rank == 0:
-            try:
-                # raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
-                # pip install git+https://github.com/saugatkandel/hiddenlayer.git
+            # try:
+            # raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
+            # pip install git+https://github.com/saugatkandel/hiddenlayer.git
 
-                # from torchviz import make_dot
-                # # not viable.
-                # make_dot(tuple(self.network(torch.rand((1, self.num_input_channels,
-                #                                         *self.configuration_manager.patch_size),
-                #                                        device=self.device)))).render(
-                #     join(self.output_folder, "network_architecture.pdf"), format='pdf')
-                # self.optimizer.zero_grad()
+            # from torchviz import make_dot
+            # # not viable.
+            # make_dot(tuple(self.network(torch.rand((1, self.num_input_channels,
+            #                                         *self.configuration_manager.patch_size),
+            #                                        device=self.device)))).render(
+            #     join(self.output_folder, "network_architecture.pdf"), format='pdf')
+            # self.optimizer.zero_grad()
 
-                # broken.
+            # broken.
 
-                import hiddenlayer as hl
-                g = hl.build_graph(self.network,
-                                   torch.rand((1, self.num_input_channels,
-                                               *self.configuration_manager.patch_size),
-                                              device=self.device),
-                                   transforms=None)
-                g.save(join(self.output_folder, "network_architecture.pdf"))
-                del g
-            except Exception as e:
-                self.print_to_log_file("Unable to plot network architecture:")
-                self.print_to_log_file(e)
+            import hiddenlayer as hl
+            for m in self.network.modules():
+                if 'InstanceNorm' in m.__class__.__name__:
+                    m.train(False)
+            g = hl.build_graph(self.network,
+                               torch.rand((1, self.num_input_channels,
+                                           *self.configuration_manager.patch_size),
+                                          device=self.device),
+                               transforms=None)
+            g.save(join(self.output_folder, "network_architecture.pdf"))
+            del g
+            for m in self.network.modules():
+                if 'InstanceNorm' in m.__class__.__name__:
+                    m.train(True)
+            print(self.network)
+            # except Exception as e:
+            #     self.print_to_log_file("Unable to plot network architecture:")
+            #     self.print_to_log_file(e)
 
-                # self.print_to_log_file("\nprinting the network instead:\n")
-                # self.print_to_log_file(self.network)
-                # self.print_to_log_file("\n")
-            finally:
-                empty_cache(self.device)
+            # self.print_to_log_file("\nprinting the network instead:\n")
+            # self.print_to_log_file(self.network)
+            # self.print_to_log_file("\n")
+            # finally:
+            empty_cache(self.device)
 
     def do_split(self):
         """
@@ -1138,11 +1145,11 @@ class nnUNetTrainer(object):
 
             for k in dataset_val.keys():
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                 allowed_num_queued=2)
+                                                           allowed_num_queued=2)
                 while not proceed:
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                     allowed_num_queued=2)
+                                                               allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
@@ -1227,7 +1234,8 @@ class nnUNetTrainer(object):
                                                 self.label_manager.foreground_labels,
                                                 self.label_manager.ignore_label, chill=True)
             self.print_to_log_file("Validation complete", also_print_to_console=True)
-            self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
+            self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
+                                   also_print_to_console=True)
 
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()

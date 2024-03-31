@@ -7,9 +7,8 @@ import skimage
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
+
 # 标签边缘value为0，向内部value逐层递增，向外部value逐层递减，以实现类似山峰的效果
-
-
 
 
 def grow_inner_edge(edge, seg):
@@ -21,10 +20,12 @@ def grow_inner_edge(edge, seg):
     #         if img[i, j] == 1:
     #             ret[i - 1:i + 2, j - 1:j + 2] = 1
     # 高效实现
-    num = 3 # 扩张的层数
+    num = 3  # 扩张的层数
     for i in range(num):
-        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[1:-1, 2:] | \
-                      edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
+        edge[1:-1, 1:-1] = edge[:-2, :-2] | edge[:-2, 1:-1] | edge[:-2, 2:] | edge[1:-1, :-2] | edge[1:-1, 1:-1] | edge[
+                                                                                                                   1:-1,
+                                                                                                                   2:] | \
+                           edge[2:, :-2] | edge[2:, 1:-1] | edge[2:, 2:]
     # 仅保留向内部扩张的部分
     edge[seg == False] = False
     return edge
@@ -64,12 +65,12 @@ def task(img):
     myo_edge = skimage.segmentation.find_boundaries(myo, mode='inner')
     aa_edge = skimage.segmentation.find_boundaries(aa, mode='inner')
     # 将边缘向内部扩张
-    lv_edge = grow_inner_edge(lv_edge,lv)
-    rv_edge = grow_inner_edge(rv_edge,rv)
-    la_edge = grow_inner_edge(la_edge,la)
-    ra_edge = grow_inner_edge(ra_edge,ra)
-    myo_edge = grow_inner_edge(myo_edge,myo)
-    aa_edge = grow_inner_edge(aa_edge,aa)
+    lv_edge = grow_inner_edge(lv_edge, lv)
+    rv_edge = grow_inner_edge(rv_edge, rv)
+    la_edge = grow_inner_edge(la_edge, la)
+    ra_edge = grow_inner_edge(ra_edge, ra)
+    myo_edge = grow_inner_edge(myo_edge, myo)
+    aa_edge = grow_inner_edge(aa_edge, aa)
     # 将六种类型的边缘合并，以供检查
     label_edge = lv_edge | rv_edge | la_edge | ra_edge | myo_edge | aa_edge
     ret1 = np.zeros(label_edge.shape, dtype=np.uint8)

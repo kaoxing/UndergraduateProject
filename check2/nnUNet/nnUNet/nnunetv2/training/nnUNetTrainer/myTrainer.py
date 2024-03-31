@@ -2,7 +2,7 @@
 # date: 2024-3-4
 import torch
 
-from nnunetv2.training.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
 
 # todo 可以尝试将刚出现标签的几张图像删除，然后再训练
 # todo 训练器

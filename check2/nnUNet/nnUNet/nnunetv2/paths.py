@@ -18,9 +18,13 @@ import os
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
-nnUNet_raw = os.environ.get('nnUNet_raw')
-nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
-nnUNet_results = os.environ.get('nnUNet_results')
+# nnUNet_raw = os.environ.get('nnUNet_raw')
+# nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
+# nnUNet_results = os.environ.get('nnUNet_results')
+
+nnUNet_raw = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_raw"
+nnUNet_preprocessed = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_preprocessed"
+nnUNet_results = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_results"
 
 if nnUNet_raw is None:
     print("nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "

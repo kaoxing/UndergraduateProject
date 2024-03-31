@@ -14,18 +14,23 @@ from merge_boundaries_with_seg import merge_boundaries_with_seg
 
 from check2.generate_dataset_json import generate_dataset_json
 
-nnUNet_raw = os.environ.get('nnUNet_raw')
-nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
-nnUNet_results = os.environ.get('nnUNet_results')
+# nnUNet_raw = os.environ.get('nnUNet_raw')
+# nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
+# nnUNet_results = os.environ.get('nnUNet_results')
+
+nnUNet_raw = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_raw"
+nnUNet_preprocessed = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_preprocessed"
+nnUNet_results = r"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_results"
+
 dataset_name = f"Dataset603_MMWHS2017_CT"
 out_dir = Path(nnUNet_raw.replace('"', "")) / dataset_name
 out_train_dir = out_dir / "imagesTr"
 out_labels_dir = out_dir / "labelsTr"
 out_test_dir = out_dir / "imagesTs"
-mr_train_dir = f"../RawData/MM-WHS 2017 Dataset/mr_train"
-mr_test_dir = f"../RawData/MM-WHS 2017 Dataset/mr_test"
-ct_test_dir = f"../RawData/MM-WHS 2017 Dataset/ct_test"
-ct_train_dir = f"../RawData/MM-WHS 2017 Dataset/ct_train"
+mr_train_dir = f"../data/RawData/MM-WHS 2017 Dataset/mr_train"
+mr_test_dir = f"../data/RawData/MM-WHS 2017 Dataset/mr_test"
+ct_test_dir = f"../data/RawData/MM-WHS 2017 Dataset/ct_test"
+ct_train_dir = f"../data/RawData/MM-WHS 2017 Dataset/ct_train"
 
 
 def make_out_dirs():
