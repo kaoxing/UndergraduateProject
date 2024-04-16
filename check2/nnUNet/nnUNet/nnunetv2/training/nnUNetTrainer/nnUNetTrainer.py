@@ -499,6 +499,8 @@ class nnUNetTrainer(object):
                 if 'InstanceNorm' in m.__class__.__name__:
                     m.train(True)
             print(self.network)
+            # 计算网络参数量
+            print('Number of parameters: ', sum(p.numel() for p in self.network.parameters()))
             # except Exception as e:
             #     self.print_to_log_file("Unable to plot network architecture:")
             #     self.print_to_log_file(e)
