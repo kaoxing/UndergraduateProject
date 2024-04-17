@@ -4,3 +4,5 @@
 /check2/nnUNet-2.2.zip
 /nnUNet_Data/*
 /RawData/*
+/CycleGan/datasets/MRI_CT/*
+/CycleGan/datasets/horse2zebra/*

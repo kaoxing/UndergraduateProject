@@ -6,6 +6,14 @@
       <excludeFolder url="file://$MODULE_DIR$/CycleGan/pytorch-CycleGAN-and-pix2pix/checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/CycleGan/pytorch-CycleGAN-and-pix2pix/datasets/horse2zebra" />
       <excludeFolder url="file://$MODULE_DIR$/check2/nnUNet/nnUNet/nnunetv2.egg-info" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/MRI_CT/testA" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/MRI_CT/testB" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/MRI_CT/trainB" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/horse2zebra/testA" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/horse2zebra/testB" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/horse2zebra/trainA" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/horse2zebra/trainB" />
+      <excludeFolder url="file://$MODULE_DIR$/CycleGan/datasets/MRI_CT/trainA" />
     </content>
     <orderEntry type="jdk" jdkName="torch3.9" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
