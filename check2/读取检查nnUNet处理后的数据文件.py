@@ -15,30 +15,43 @@ def calculate_sha256(file_path):
 
 
 if __name__ == '__main__':
-    # .npy
-    npy_path = '../nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1001.npy'
-    npy = np.load(npy_path)
-    plt.imshow(npy[0][150])
+    # raw
+    raw_path = '../data/nnUNet_data/nnUNet_raw/Dataset602_MMWHS2017_CT/imagesTr/ct_train_1002_0000.nii.gz'
+    img = sitk.ReadImage(raw_path)
+    img = sitk.GetArrayFromImage(img)
+    plt.imshow(img[0])
     plt.show()
 
-    # seg.npy
-    seg_path = '../nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1001_seg.npy'
-    seg_npy = np.load(seg_path)
-    plt.imshow(seg_npy[0][150])
-    plt.show()
-
-    # .npy保存为'data',seg.npy保存为'seg'
-    np.savez_compressed(seg_path.replace('.npy', '.npz'), data=npy, seg=seg_npy)
+    # # .npy
+    # npy_path = '../data/nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1001.npy'
+    # npy = np.load(npy_path)
+    # plt.imshow(npy[0][150])
+    # plt.show()
+    #
+    # # seg.npy
+    # seg_path = '../data/nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1001_seg.npy'
+    # seg_npy = np.load(seg_path)
+    # plt.imshow(seg_npy[0][150])
+    # plt.show()
+    #
+    # # .npy保存为'data',seg.npy保存为'seg'
+    # np.savez_compressed(seg_path.replace('.npy', '.npz'), data=npy, seg=seg_npy)
 
     # .npz
-    npz_path = '../nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1001.npz'
+    npz_path = '../data/nnUNet_Data/nnUNet_preprocessed/Dataset602_MMWHS2017_CT/nnUNetPlans_2d/ct_train_1002.npz'
     npz = np.load(npz_path)
     key = 'data'
-    print(np.all(np.equal(npz[key][0][150], npy[0][150])))
-    plt.imshow(npz[key][0][150])
+    data = npz[key]
+    print(data.shape)
+    # print(np.all(np.equal(npz[key][0][150], npy[0][150])))
+    plt.imshow(npz[key][0][0])
     plt.show()
 
     # 读取先前保存的.npy，计算sha256值，与读取的.npz计算的hash值进行比较
-    hash_seg_npz = calculate_sha256(seg_path.replace('.npy', '.npz'))
-    hash_npz = calculate_sha256(npz_path)
-    print(hash_seg_npz == hash_npz) # 相同
+    # hash_seg_npz = calculate_sha256(seg_path.replace('.npy', '.npz'))
+    # hash_npz = calculate_sha256(npz_path)
+    # print(hash_seg_npz == hash_npz) # 相同
+
+    # 删除.segnpz文件
+    # import os
+    # os.remove(seg_path.replace('.npy', '.npz'))

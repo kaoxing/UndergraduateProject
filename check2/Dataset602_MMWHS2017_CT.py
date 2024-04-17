@@ -15,7 +15,7 @@ from check2.generate_dataset_json import generate_dataset_json
 nnUNet_raw = os.environ.get('nnUNet_raw')
 nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
 nnUNet_results = os.environ.get('nnUNet_results')
-dataset_name = f"Dataset612_MMWHS2017_CT_EXTENSIONUNET_SKIPCONNECT"
+dataset_name = f"Dataset602_MMWHS2017_CT"
 out_dir = Path(nnUNet_raw.replace('"', "")) / dataset_name
 out_train_dir = out_dir / "imagesTr"
 out_labels_dir = out_dir / "labelsTr"

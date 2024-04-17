@@ -20,10 +20,10 @@ out_dir = Path(nnUNet_raw.replace('"', "")) / dataset_name
 out_train_dir = out_dir / "imagesTr"
 out_labels_dir = out_dir / "labelsTr"
 out_test_dir = out_dir / "imagesTs"
-mr_train_dir = f"../RawData/MM-WHS 2017 Dataset/mr_train"
-mr_test_dir = f"../RawData/MM-WHS 2017 Dataset/mr_test"
-ct_test_dir = f"../RawData/MM-WHS 2017 Dataset/ct_test"
-ct_train_dir = f"../RawData/MM-WHS 2017 Dataset/ct_train"
+mr_train_dir = f"../data/RawData/MM-WHS 2017 Dataset/mr_train"
+mr_test_dir = f"../data/RawData/MM-WHS 2017 Dataset/mr_test"
+ct_test_dir = f"../data/RawData/MM-WHS 2017 Dataset/ct_test"
+ct_train_dir = f"../data/RawData/MM-WHS 2017 Dataset/ct_train"
 
 
 def make_out_dirs():
@@ -35,7 +35,7 @@ def make_out_dirs():
     return out_dir, out_train_dir, out_labels_dir, out_test_dir
 
 
-def copy_files_mri():
+def copy_files():
     """Copy files from the MMWHS dataset to the nnUNet dataset folder."""
 
     # copy mri training files
