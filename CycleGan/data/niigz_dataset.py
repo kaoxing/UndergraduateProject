@@ -6,6 +6,7 @@ import os
 import numpy as np
 from data.base_dataset import BaseDataset, get_transform
 import SimpleITK as sitk
+from torchvision import transforms
 
 
 class niigzdataset(BaseDataset):
@@ -18,18 +19,21 @@ class niigzdataset(BaseDataset):
         self.paths_trb = os.listdir(os.path.join(self.paths, 'trainB'))
         self.paths_trb = [os.path.join(self.paths, 'trainB', i) for i in self.paths_trb]
         # 获取路径,读取数据,将数据读取为数组,为了方便按index读取，将多个三维数组按通道拼接为一个三维数组
+        transform = transforms.ToTensor()
         self.tra = []
         for path in self.paths_tra:
             img = sitk.ReadImage(path)
             img = sitk.GetArrayFromImage(img)
             self.tra.extend(img)
+        self.tra = transform(self.tra)
         self.trb = []
         for path in self.paths_trb:
             img = sitk.ReadImage(path)
             img = sitk.GetArrayFromImage(img)
             self.trb.extend(img)
+        self.trb = transform(self.trb)
         # 定义transform
-        self.transform = get_transform(opt)
+        self.transform = get_transform(opt, grayscale=True)
 
     def __getitem__(self, index):
         # 读取数据
