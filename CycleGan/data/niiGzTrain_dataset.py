@@ -25,27 +25,33 @@ class letterbox_image:
         :return: 缩放到size后的目标图像 Tensor
         """
         # Tensor转为ndarray
-        image = image.cpu().numpy()
-        ret = []
-        for img in image:
-            minValue = min(self.size)
-            img = Image.fromarray(img)
+        image: np.ndarray = image.cpu().numpy()
+        minValue = image.min()
+        img = Image.fromarray(image[0]) # tensor自动增加0维，不符合Image格式
+        iw, ih = img.size
+        # 若原图两轴差距有一倍以上，则将较小的轴放大一倍
+        if iw / ih > 2 or ih / iw > 2:
+            if iw > ih:
+                img = img.resize((iw, ih * 2))  # 若宽度大于高度，则高度放大一倍
+            else:
+                img = img.resize((iw * 2, ih))  # 若高度大于宽度，则宽度放大一倍
             iw, ih = img.size
-            w, h = self.size
-            scale = min(w / iw, h / ih)
-            nw = int(iw * scale)
-            nh = int(ih * scale)
-            # 此时为按比例缩放，为torch提供的函数
-            img = img.resize((nw, nh))
-            # 构建新的RGB背景图片
-            new_image = Image.new(img.mode, self.size, minValue)
-            # 缩放后的图片粘贴至背景图片上
-            '''参数可选4元组及2元组，如果选择2元组，则为新图片相当于背景图片的左上角坐标'''
-            new_image.paste(img, ((w - nw) // 2, (h - nh) // 2))
-            ret.append(np.asarray(new_image))
-        ret = np.asarray(ret)
+        w, h = self.size
+        scale = min(w / iw, h / ih)
+        nw = int(iw * scale)
+        nh = int(ih * scale)
+        # 此时为按比例缩放，为torch提供的函数
+        img = img.resize((nw, nh))
+        # 构建新的RGB背景图片
+        new_image = Image.new(img.mode, self.size, minValue)
+        # 缩放后的图片粘贴至背景图片上
+        '''参数可选4元组及2元组，如果选择2元组，则为新图片相当于背景图片的左上角坐标'''
+        new_image.paste(img, ((w - nw) // 2, (h - nh) // 2))
+        img = np.asarray(new_image)
         # ndarray转为Tensor
-        return torch.from_numpy(ret).cuda()
+        img = torch.from_numpy(img).cuda()
+        # 还原被去掉的0维
+        return img.unsqueeze(0)
 
 
 class reverse_letterbox_image:
@@ -111,6 +117,8 @@ class niiGzTrainDataset(BaseDataset):
         self.tra = []
         for path in self.paths_tra:
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
+            # mri数据要交换轴，将轴顺序变为y,x,z
+            data = np.transpose(data, (1, 0, 2))
             self.tra.extend(data)
         self.trb = []
         for path in self.paths_trb:
@@ -135,15 +143,21 @@ class niiGzTrainDataset(BaseDataset):
         # 读取.niigz并transform，一次返回一整个3D图像
         arr_a = self.tra[index]
         arr_b = self.trb[index]
-        # 数据transform
-        arr_a = self.transform_A(arr_a)
-        arr_b = self.transform_B(arr_b)
-        # 打印data和target
         # import matplotlib.pyplot as plt
         # import matplotlib
         # matplotlib.use('TkAgg')  # 指定使用TkAgg后端
-        # print("data.shape:", arr_a.shape)
-        # print("target.shape:", arr_b.shape)
+        # print("data.shape1:", arr_a.shape)
+        # print("target.shape2:", arr_b.shape)
+        # plt.imshow(arr_a, cmap='gray')
+        # plt.show()
+        # plt.imshow(arr_b, cmap='gray')
+        # plt.show()
+        # 数据transform
+        arr_a = self.transform_A(arr_a)
+        arr_b = self.transform_B(arr_b)
+        # # 打印data和target
+        # print("data.shape3:", arr_a.shape)
+        # print("target.shape4:", arr_b.shape)
         # plt.imshow(arr_a.cpu().numpy()[0], cmap='gray')
         # plt.show()
         # plt.imshow(arr_b.cpu().numpy()[0], cmap='gray')

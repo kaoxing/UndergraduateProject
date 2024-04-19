@@ -111,6 +111,15 @@ class CycleGANModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
+        # import matplotlib.pyplot as plt
+        # import matplotlib
+        # matplotlib.use('TkAgg')  # 指定使用TkAgg后端
+        # print("data.shape:", self.real_A.shape)
+        # print("target.shape:", self.real_B.shape)
+        # plt.imshow(self.real_A.cpu().numpy()[0][0], cmap='gray')
+        # plt.show()
+        # plt.imshow(self.real_B.cpu().numpy()[0][0], cmap='gray')
+        # plt.show()
         self.fake_B = self.netG_A(self.real_A)  # G_A(A)
         self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
         self.fake_A = self.netG_B(self.real_B)  # G_B(B)
