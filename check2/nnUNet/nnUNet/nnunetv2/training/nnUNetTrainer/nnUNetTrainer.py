@@ -879,6 +879,9 @@ class nnUNetTrainer(object):
         data = batch['data']
         target = batch['target']
 
+        print("data.shape:",data.shape)
+        print("target.shape:",target.shape)
+
         data = data.to(self.device, non_blocking=True)
         if isinstance(target, list):
             target = [i.to(self.device, non_blocking=True) for i in target]
@@ -892,6 +895,9 @@ class nnUNetTrainer(object):
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
+
+            print("output.shape:",output)
+
             # del data
             l = self.loss(output, target)
 
@@ -905,6 +911,7 @@ class nnUNetTrainer(object):
             l.backward()
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
+
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):

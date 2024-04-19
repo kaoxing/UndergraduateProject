@@ -31,6 +31,8 @@ class nnUNetDataset(BaseDataset):
         print("nnUNet_dataset")
         self.paths = opt.dataroot
         # 获取trainA trainB的文件.npz
+        self.dir_A = os.path.join(opt.dataroot, opt.phase + 'A')  # create a path '/path/to/data/trainA'
+        self.dir_B = os.path.join(opt.dataroot, opt.phase + 'B')  # create a path '/path/to/data/trainB'
         self.paths_tra = os.listdir(os.path.join(self.paths, 'trainA'))
         self.paths_tra = [os.path.join(self.paths, 'trainA', i) for i in self.paths_tra]
         self.paths_trb = os.listdir(os.path.join(self.paths, 'trainB'))
@@ -43,6 +45,8 @@ class nnUNetDataset(BaseDataset):
             self.transform.append(transforms.RandomCrop(opt.crop_size))
         if opt.flip:
             self.transform.append(transforms.RandomHorizontalFlip())
+        if opt.norm:
+            self.transform.append(transforms.Normalize((0.5,), (0.5,)))
         self.transform = transforms.Compose(self.transform)
         # 读取数据,将数据读取为数组,为了方便按index读取，将多个三维数组按通道拼接为一个三维数组
         self.tra = []
@@ -55,10 +59,15 @@ class nnUNetDataset(BaseDataset):
             self.trb.extend(data)
 
     def __getitem__(self, index):
-        # 读取数据
+        # 数据transform
+        A = self.transform(self.tra[index])
+        B = self.transform(self.trb[index])
+        # 数据增加1维，变为4维
+        A = A.unsqueeze(0)
+        B = B.unsqueeze(0)
         return {
-            'data_A': self.transform(self.tra[index]),
-            'data_B': self.transform(self.trb[index]),
+            'data_A': A,
+            'data_B': B,
             'path': ""  # 不需要实现，因为其仅在test时用到
         }
 

@@ -4,7 +4,7 @@ from .base_options import BaseOptions
 class TestOptions(BaseOptions):
     """This class includes test options.
 
-    It also includes shared options defined in BaseOptions.
+    It also includes shared options defined in BaseOptions.--dataroot ./datasets/MRI_CT --name MRI_CT --model cycle_gan --dataset_mode nnUNet --input_nc 1 --output_nc 1 --load_size 448 --crop_size 384
     """
 
     def initialize(self, parser):
