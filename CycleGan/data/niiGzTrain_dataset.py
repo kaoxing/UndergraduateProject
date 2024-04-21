@@ -126,6 +126,11 @@ class niiGzTrainDataset(BaseDataset):
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
             self.trb.extend(data)
 
+        # 分别计算CT和MRI的mean和std
+        self.mean_a = np.mean(self.tra)
+        self.std_a = np.std(self.tra)
+        self.mean_b = np.mean(self.trb)
+        self.std_b = np.std(self.trb)
         # 数据transform
         self.transform_A = [transforms.ToTensor()]
         self.transform_B = [transforms.ToTensor()]
@@ -136,8 +141,8 @@ class niiGzTrainDataset(BaseDataset):
             self.transform_A.append(transforms.RandomHorizontalFlip())
             self.transform_B.append(transforms.RandomHorizontalFlip())
         if opt.norm:
-            self.transform_A.append(transforms.Normalize((opt.mean_a,), (opt.std_a,)))
-            self.transform_B.append(transforms.Normalize((opt.mean_b,), (opt.std_b,)))
+            self.transform_A.append(transforms.Normalize((self.mean_a,), (self.std_a,)))
+            self.transform_B.append(transforms.Normalize((self.mean_b,), (self.std_b,)))
         if not opt.resize:
             self.transform_A.append(letterbox_image(opt.load_size))
             self.transform_B.append(letterbox_image(opt.load_size))
