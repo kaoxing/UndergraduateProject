@@ -27,7 +27,7 @@ class letterbox_image:
         # Tensor转为ndarray
         image: np.ndarray = image.cpu().numpy()
         minValue = image.min()
-        img = Image.fromarray(image[0]) # tensor自动增加0维，不符合Image格式
+        img = Image.fromarray(image[0])  # tensor自动增加0维，不符合Image格式
         iw, ih = img.size
         # 若原图两轴差距有一倍以上，则将较小的轴放大一倍
         if iw / ih > 2 or ih / iw > 2:
@@ -100,6 +100,7 @@ class niiGzTrainDataset(BaseDataset):
         parser.add_argument('--std_b', type=float, default=0.5, help='std_b')
         parser.add_argument('--mean_b', type=float, default=0.5, help='mean_b')
         parser.add_argument('--flip', action="store_true", help='do flip')
+        parser.add_argument('--resize', action="store_true", help='resize')
         return parser
 
     def __init__(self, opt):
@@ -128,40 +129,29 @@ class niiGzTrainDataset(BaseDataset):
         # 数据transform
         self.transform_A = [transforms.ToTensor()]
         self.transform_B = [transforms.ToTensor()]
+        if opt.resize:
+            self.transform_A.append(transforms.Resize([opt.load_size, opt.load_size]))
+            self.transform_B.append(transforms.Resize([opt.load_size, opt.load_size]))
         if opt.flip:
             self.transform_A.append(transforms.RandomHorizontalFlip())
             self.transform_B.append(transforms.RandomHorizontalFlip())
         if opt.norm:
             self.transform_A.append(transforms.Normalize((opt.mean_a,), (opt.std_a,)))
             self.transform_B.append(transforms.Normalize((opt.mean_b,), (opt.std_b,)))
-        self.transform_A.append(letterbox_image(opt.load_size))
-        self.transform_B.append(letterbox_image(opt.load_size))
+        if not opt.resize:
+            self.transform_A.append(letterbox_image(opt.load_size))
+            self.transform_B.append(letterbox_image(opt.load_size))
         self.transform_A = transforms.Compose(self.transform_A)
         self.transform_B = transforms.Compose(self.transform_B)
+        # 数据transform
+        for i in range(len(self)):
+            self.tra[i] = self.transform_A(self.tra[i])
+            self.trb[i] = self.transform_B(self.trb[i])
 
     def __getitem__(self, index):
         # 读取.niigz并transform，一次返回一整个3D图像
         arr_a = self.tra[index]
         arr_b = self.trb[index]
-        # import matplotlib.pyplot as plt
-        # import matplotlib
-        # matplotlib.use('TkAgg')  # 指定使用TkAgg后端
-        # print("data.shape1:", arr_a.shape)
-        # print("target.shape2:", arr_b.shape)
-        # plt.imshow(arr_a, cmap='gray')
-        # plt.show()
-        # plt.imshow(arr_b, cmap='gray')
-        # plt.show()
-        # 数据transform
-        arr_a = self.transform_A(arr_a)
-        arr_b = self.transform_B(arr_b)
-        # # 打印data和target
-        # print("data.shape3:", arr_a.shape)
-        # print("target.shape4:", arr_b.shape)
-        # plt.imshow(arr_a.cpu().numpy()[0], cmap='gray')
-        # plt.show()
-        # plt.imshow(arr_b.cpu().numpy()[0], cmap='gray')
-        # plt.show()
         return {
             'A': arr_a,
             'B': arr_b,
