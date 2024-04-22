@@ -280,7 +280,7 @@ if __name__ == '__main__':
     p.handle_CT(4)
     p.handle_MRI(4)
     print('done')
-    p = CycleGANDataPreprocessor()
+    # p = CycleGANDataPreprocessor()
     # 保存用于匹配方向的target图像, 先处理CT图像
     # ct_paths = [os.path.join(p.ct_dir, p.train_name, i) for i in os.listdir(os.path.join(p.ct_dir, p.train_name))]
     # cts = [sitk.GetArrayFromImage(sitk.ReadImage(i)) for i in ct_paths]

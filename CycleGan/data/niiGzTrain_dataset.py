@@ -1,6 +1,7 @@
 # author:kaoxing
 # date: 2024/4/19
 
+from CycleGanDataPreprogress import CycleGANDataPreprocessor
 import os
 import torch
 from data.base_dataset import BaseDataset, get_transform
@@ -95,10 +96,6 @@ class niiGzTrainDataset(BaseDataset):
             the modified parser.
             :param parser:
         """
-        parser.add_argument('--std_a', type=float, default=0.5, help='std_a')
-        parser.add_argument('--mean_a', type=float, default=0.5, help='mean_a')
-        parser.add_argument('--std_b', type=float, default=0.5, help='std_b')
-        parser.add_argument('--mean_b', type=float, default=0.5, help='mean_b')
         parser.add_argument('--flip', action="store_true", help='do flip')
         parser.add_argument('--resize', action="store_true", help='resize')
         return parser
@@ -111,21 +108,41 @@ class niiGzTrainDataset(BaseDataset):
         # 获取testA,testB的文件.niigz
         self.dir_A = str(os.path.join(opt.dataroot, opt.phase + 'A'))  # create a path '/path/to/data/trainA'
         self.dir_B = str(os.path.join(opt.dataroot, opt.phase + 'B'))  # create a path '/path/to/data/trainB'
-        self.paths_tra = [os.path.join(self.dir_A, i) for i in os.listdir(self.dir_A)]
-        self.paths_trb = [os.path.join(self.dir_B, i) for i in os.listdir(self.dir_B)]
+        self.tra = [os.path.join(self.dir_A, i) for i in os.listdir(self.dir_A)]
+        self.trb = [os.path.join(self.dir_B, i) for i in os.listdir(self.dir_B)]
+        # 将.nii.gz和.npy文件分离
+        self.paths_tra = [i for i in self.tra if i.endswith('.nii.gz')]
+        self.paths_trb = [i for i in self.trb if i.endswith('.nii.gz')]
+
 
         # 读取数据,将数据读取为数组,为了方便按index读取，将多个三维数组按通道拼接为一个三维数组
+        p = CycleGANDataPreprocessor()
         self.tra = []
         for path in self.paths_tra:
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
-            # mri数据要交换轴，将轴顺序变为y,x,z
-            data = np.transpose(data, (1, 0, 2))
+            # 通过CycleGANDataPreprocessor获取转置方向
+            temp = p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = p.norm_direction(data, temp)
+            data = np.transpose(data, axes)
             self.tra.extend(data)
+
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        p.plot_image(self.tra[100])
+        p.plot_image(self.tra[150])
+        p.plot_image(self.tra[300])
+        p.plot_image(self.tra[400])
         self.trb = []
         for path in self.paths_trb:
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
+            # 通过CycleGANDataPreprocessor获取转置方向
+            temp = p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = p.norm_direction(data, temp)
+            data = np.transpose(data, axes)
             self.trb.extend(data)
-
+        p.plot_image(self.trb[100])
+        p.plot_image(self.trb[150])
+        p.plot_image(self.trb[300])
+        p.plot_image(self.trb[400])
         # 分别计算CT和MRI的mean和std
         self.mean_a = np.mean(self.tra)
         self.std_a = np.std(self.tra)
