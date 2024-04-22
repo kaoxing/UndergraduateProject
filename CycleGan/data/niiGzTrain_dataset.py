@@ -98,6 +98,8 @@ class niiGzTrainDataset(BaseDataset):
         """
         parser.add_argument('--flip', action="store_true", help='do flip')
         parser.add_argument('--resize', action="store_true", help='resize')
+        parser.add_argument('--blur', action="store_true", help='blur')
+        parser.add_argument('--rotate', action="store_true", help='rotate')
         return parser
 
     def __init__(self, opt):
@@ -116,33 +118,32 @@ class niiGzTrainDataset(BaseDataset):
 
 
         # 读取数据,将数据读取为数组,为了方便按index读取，将多个三维数组按通道拼接为一个三维数组
-        p = CycleGANDataPreprocessor()
+        self.p = CycleGANDataPreprocessor()
         self.tra = []
         for path in self.paths_tra:
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
             # 通过CycleGANDataPreprocessor获取转置方向
-            temp = p.get_norm_target(path.replace('.nii.gz', '.npy'))
-            axes = p.norm_direction(data, temp)
+            temp = self.p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = self.p.norm_direction(data, temp)
             data = np.transpose(data, axes)
             self.tra.extend(data)
-
-        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-        p.plot_image(self.tra[100])
-        p.plot_image(self.tra[150])
-        p.plot_image(self.tra[300])
-        p.plot_image(self.tra[400])
+        # os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        # self.p.plot_image(self.tra[100])
+        # self.p.plot_image(self.tra[150])
+        # self.p.plot_image(self.tra[300])
+        # self.p.plot_image(self.tra[400])
         self.trb = []
         for path in self.paths_trb:
             data = sitk.GetArrayFromImage(sitk.ReadImage(path)).astype(np.float32)
             # 通过CycleGANDataPreprocessor获取转置方向
-            temp = p.get_norm_target(path.replace('.nii.gz', '.npy'))
-            axes = p.norm_direction(data, temp)
+            temp = self.p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = self.p.norm_direction(data, temp)
             data = np.transpose(data, axes)
             self.trb.extend(data)
-        p.plot_image(self.trb[100])
-        p.plot_image(self.trb[150])
-        p.plot_image(self.trb[300])
-        p.plot_image(self.trb[400])
+        # self.p.plot_image(self.trb[100])
+        # self.p.plot_image(self.trb[150])
+        # self.p.plot_image(self.trb[300])
+        # self.p.plot_image(self.trb[400])
         # 分别计算CT和MRI的mean和std
         self.mean_a = np.mean(self.tra)
         self.std_a = np.std(self.tra)
@@ -151,12 +152,17 @@ class niiGzTrainDataset(BaseDataset):
         # 数据transform
         self.transform_A = [transforms.ToTensor()]
         self.transform_B = [transforms.ToTensor()]
+        self.transform_train = []
         if opt.resize:
             self.transform_A.append(transforms.Resize([opt.load_size, opt.load_size]))
             self.transform_B.append(transforms.Resize([opt.load_size, opt.load_size]))
         if opt.flip:
-            self.transform_A.append(transforms.RandomHorizontalFlip())
-            self.transform_B.append(transforms.RandomHorizontalFlip())
+            self.transform_train.append(transforms.RandomHorizontalFlip())
+            self.transform_train.append(transforms.RandomVerticalFlip())
+        if opt.blur:
+            self.transform_train.append(transforms.RandomApply(transforms.GaussianBlur(kernel_size=5)))
+        if opt.rotate:
+            self.transform_train.append(transforms.RandomRotation(90))
         if opt.norm:
             self.transform_A.append(transforms.Normalize((self.mean_a,), (self.std_a,)))
             self.transform_B.append(transforms.Normalize((self.mean_b,), (self.std_b,)))
@@ -165,6 +171,7 @@ class niiGzTrainDataset(BaseDataset):
             self.transform_B.append(letterbox_image(opt.load_size))
         self.transform_A = transforms.Compose(self.transform_A)
         self.transform_B = transforms.Compose(self.transform_B)
+        self.transform_train = transforms.Compose(self.transform_train)
         # 数据transform
         for i in range(len(self)):
             self.tra[i] = self.transform_A(self.tra[i])
@@ -174,6 +181,11 @@ class niiGzTrainDataset(BaseDataset):
         # 读取.niigz并transform，一次返回一整个3D图像
         arr_a = self.tra[index]
         arr_b = self.trb[index]
+        arr_a = self.transform_train(arr_a)
+        arr_b = self.transform_train(arr_b)
+        # os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        # self.p.plot_image(arr_a.cpu().numpy()[0])
+        # self.p.plot_image(arr_b.cpu().numpy()[0])
         return {
             'A': arr_a,
             'B': arr_b,
