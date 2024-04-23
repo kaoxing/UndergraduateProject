@@ -72,11 +72,13 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
 
 def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
                           pretrained_weights_file: str = None):
+    print("load from:", pretrained_weights_file)
     if continue_training and pretrained_weights_file is not None:
         raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
                            'be used at the beginning of the training.')
     if continue_training:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
+        print("expected_checkpoint_file:", expected_checkpoint_file)
         if not isfile(expected_checkpoint_file):
             expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
         # special case where --c is used to run a previously aborted validation
@@ -209,6 +211,7 @@ def run_training(dataset_name_or_id: Union[str, int],
 
         if val_with_best:
             nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
+
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 

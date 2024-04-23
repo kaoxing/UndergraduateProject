@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import shutil
 import sys
+import traceback
 import warnings
 from copy import deepcopy
 from datetime import datetime
@@ -141,7 +142,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 5
+        self.num_epochs = 6
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -885,17 +886,22 @@ class nnUNetTrainer(object):
         import matplotlib
         matplotlib.use('Agg')
         self.network.eval()
-        for data in batch:
-            data = data.unsqueeze(0)
-            with torch.no_grad():
-                out = self.network(data)
-                cam_extractor = ScoreCAM(self.network)
-                cams = cam_extractor(out.squeese(0).item(), out)
-                for cam in cams:
-                    print(cam.shape)
+        # 打印出网络所有结构的名字
+        try:
+            for name, module in self.network.named_modules():
+                print(name, module)
+            for data in batch:
+                data = data.unsqueeze(0)
+                with torch.no_grad():
+                    out = self.network(data)
 
-
-
+                    cam_extractor = ScoreCAM(self.network, target_layer='decoder.seg_layers.0', batch_size=1, input_shape=out[0].shape)
+                    cams = cam_extractor(out.squeeze(0).item(), out)
+                    for cam in cams:
+                        print(cam.shape)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
 
 
     def train_step(self, batch: dict) -> dict:
@@ -911,7 +917,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.compute_cam(data)
+        # self.compute_cam(data)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
@@ -922,7 +928,14 @@ class nnUNetTrainer(object):
             output = self.network(data)
 
             # print("output.shape:",output)
-
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use("TkAgg")
+            for i in range(len(output[0])):
+                plt.imshow(output[0][i].cpu().detach().numpy(), cmap='gray')
+                plt.show()
+            # plt.imshow(target[0][0].cpu().detach().numpy(), cmap='gray')
+            # plt.show()
             # del data
             l = self.loss(output, target)
 
@@ -970,6 +983,13 @@ class nnUNetTrainer(object):
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
+            # import matplotlib.pyplot as plt
+            # import matplotlib
+            # matplotlib.use("TkAgg")
+            # plt.imshow(output[0][0].cpu().detach().numpy(), cmap='gray')
+            # plt.show()
+            # plt.imshow(target[0][0].cpu().detach().numpy(), cmap='gray')
+            # plt.show()
             del data
             l = self.loss(output, target)
 
