@@ -14,6 +14,8 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
 
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 def find_free_network_port() -> int:
     """Finds a free port on localhost.

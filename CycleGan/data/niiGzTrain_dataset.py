@@ -160,9 +160,9 @@ class niiGzTrainDataset(BaseDataset):
             self.transform_train.append(transforms.RandomHorizontalFlip())
             self.transform_train.append(transforms.RandomVerticalFlip())
         if opt.blur:
-            self.transform_train.append(transforms.RandomApply(transforms.GaussianBlur(kernel_size=5)))
+            self.transform_train.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)]))
         if opt.rotate:
-            self.transform_train.append(transforms.RandomRotation(90))
+            self.transform_train.append(transforms.RandomApply([transforms.RandomRotation(360)]))
         if opt.norm:
             self.transform_A.append(transforms.Normalize((self.mean_a,), (self.std_a,)))
             self.transform_B.append(transforms.Normalize((self.mean_b,), (self.std_b,)))

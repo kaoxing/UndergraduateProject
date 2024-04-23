@@ -141,7 +141,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 100
+        self.num_epochs = 5
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -176,7 +176,7 @@ class nnUNetTrainer(object):
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
 
         ### checkpoint saving stuff
-        self.save_every = 50
+        self.save_every = 5
         self.disable_checkpointing = False
 
         ## DDP batch size and oversampling can differ between workers and needs adaptation
@@ -875,18 +875,43 @@ class nnUNetTrainer(object):
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
+    def compute_cam(self, batch):
+        """
+        用于计算cam热力图
+        :return:
+        """
+        from torchcam.methods import ScoreCAM
+        import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('Agg')
+        self.network.eval()
+        for data in batch:
+            data = data.unsqueeze(0)
+            with torch.no_grad():
+                out = self.network(data)
+                cam_extractor = ScoreCAM(self.network)
+                cams = cam_extractor(out.squeese(0).item(), out)
+                for cam in cams:
+                    print(cam.shape)
+
+
+
+
+
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
         target = batch['target']
 
-        print("data.shape:",data.shape)
-        print("target.shape:",target.shape)
+        # print("data.shape:",data.shape)
+        # print("target.shape:",target.shape)
 
         data = data.to(self.device, non_blocking=True)
         if isinstance(target, list):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
+
+        self.compute_cam(data)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
@@ -896,7 +921,7 @@ class nnUNetTrainer(object):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
 
-            print("output.shape:",output)
+            # print("output.shape:",output)
 
             # del data
             l = self.loss(output, target)
@@ -1248,6 +1273,9 @@ class nnUNetTrainer(object):
 
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()
+
+
+
 
     def run_training(self):
         self.on_train_start()
