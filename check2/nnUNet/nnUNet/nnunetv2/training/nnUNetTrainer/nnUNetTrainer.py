@@ -876,13 +876,13 @@ class nnUNetTrainer(object):
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
-    def compute_cam(self, batch, target):
+    def compute_cam(self, batch, target=None):
         """
         用于计算cam热力图
         :return:
         """
         from PIL import Image
-        from pytorch_grad_cam import GradCAMPlusPlus,ScoreCAM
+        from pytorch_grad_cam import GradCAMPlusPlus, ScoreCAM
         from pytorch_grad_cam.utils.image import show_cam_on_image
         import matplotlib.pyplot as plt
         try:
@@ -893,7 +893,8 @@ class nnUNetTrainer(object):
                 print(name, module)
             self.network.eval()
             data = batch[0].unsqueeze(0)
-            label = target[0][0].detach().cpu().numpy()
+            if target is not None:
+                label = target[0][0].detach().cpu().numpy()
             output = self.network(data)
             normalized_masks = torch.nn.functional.softmax(output, dim=1).cpu()
             sem_classes = [
@@ -905,7 +906,8 @@ class nnUNetTrainer(object):
             # plt.imshow(car_mask, cmap='gray')
             # plt.show()
             car_mask_float = np.float32(car_mask == car_category)
-            car_label_float = np.float32(label == car_category)
+            if target is not None:
+                car_label_float = np.float32(label == car_category)
 
             class SemanticSegmentationTarget:
                 def __init__(self, category, mask):
@@ -917,36 +919,38 @@ class nnUNetTrainer(object):
                 def __call__(self, model_output):
                     print(model_output.shape)
                     ret = (model_output[self.category, :, :] * self.mask).sum()
-                    print(ret)
+                    # print(ret)
                     return ret
 
-            target_layers = [self.network.decoder.stages[6].convs[1]]
+            target_layers = [self.network.decoder.stages[5].convs[1]]
             targets = [SemanticSegmentationTarget(car_category, car_mask_float)]
             with GradCAMPlusPlus(model=self.network,
-                         target_layers=target_layers) as cam:
+                                 target_layers=target_layers) as cam:
                 grayscale_cam = cam(input_tensor=data,
                                     targets=targets)[0, :]
                 # plt.imshow(grayscale_cam, cmap='gray')
                 # plt.show()
-                grayscale_cam = grayscale_cam # 可用
+                grayscale_cam = grayscale_cam  # 可用
                 # data归一
                 data = data[0][0].detach().cpu().numpy()
                 data = (data - data.min()) / (data.max() - data.min())
                 # 通过matplotlib绘制热力图
-
-                # plt.close()
-                fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(1,5)
-                ax1.imshow(data, cmap='gray')
-                ax1.imshow(grayscale_cam, cmap='jet', alpha=0.7, interpolation='bilinear')
+                if target is not None:
+                    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
+                else:
+                    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+                ax1.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
+                ax1.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='jet', alpha=0.7, interpolation='bilinear')
                 ax1.set_title('heatmap')
-                ax2.imshow(car_mask_float, cmap='gray')
+                ax2.imshow(Image.fromarray(car_mask_float).resize((512,512)), cmap='gray')
                 ax2.set_title('seg_mask')
-                ax3.imshow(grayscale_cam, cmap='gray')
+                ax3.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='gray')
                 ax3.set_title('cam')
-                ax4.imshow(data, cmap='gray')
+                ax4.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
                 ax4.set_title('raw')
-                ax5.imshow(car_label_float, cmap='gray')
-                ax5.set_title('label')
+                if target is not None:
+                    ax5.imshow(Image.fromarray(car_label_float).resize((512,512)), cmap='gray')
+                    ax5.set_title('label')
                 plt.show()
                 plt.close()
         except Exception as e:

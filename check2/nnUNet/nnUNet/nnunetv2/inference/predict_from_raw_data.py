@@ -602,17 +602,17 @@ class nnUNetPredictor(object):
                     fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
                 else:
                     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
-                ax1.imshow(data, cmap='gray')
-                ax1.imshow(grayscale_cam, cmap='jet', alpha=0.7, interpolation='bilinear')
+                ax1.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
+                ax1.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='jet', alpha=0.7, interpolation='bilinear')
                 ax1.set_title('heatmap')
-                ax2.imshow(car_mask_float, cmap='gray')
+                ax2.imshow(Image.fromarray(car_mask_float).resize((512,512)), cmap='gray')
                 ax2.set_title('seg_mask')
-                ax3.imshow(grayscale_cam, cmap='gray')
+                ax3.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='gray')
                 ax3.set_title('cam')
-                ax4.imshow(data, cmap='gray')
+                ax4.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
                 ax4.set_title('raw')
                 if target is not None:
-                    ax5.imshow(car_label_float, cmap='gray')
+                    ax5.imshow(Image.fromarray(car_label_float).resize((512,512)), cmap='gray')
                     ax5.set_title('label')
                 plt.show()
                 plt.close()
@@ -623,7 +623,7 @@ class nnUNetPredictor(object):
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
         prediction = self.network(x)
-        self.compute_cam(x)
+        # self.compute_cam(x)
         if mirror_axes is not None:
             # check for invalid numbers in mirror_axes
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
