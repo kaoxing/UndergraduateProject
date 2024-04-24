@@ -73,5 +73,6 @@ if __name__ == '__main__':
             print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
             model.save_networks('latest')
             model.save_networks(epoch)
-        model.update_learning_rate()  # update learning rates in the beginning of every epoch. # 修改，移动至参数更新后
+        if epoch > opt.n_epochs:  # 若当前epoch大于opt.n_epochs，则开始学习率衰减
+            model.update_learning_rate()  # update learning rates in the beginning of every epoch. # 修改，移动至参数更新后
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))

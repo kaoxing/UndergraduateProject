@@ -143,6 +143,7 @@ class CycleGANModel(BaseModel):
     def save_niigz(self):
         import SimpleITK as sitk
         for path, data in self.output.items():
+            data = np.array(data)
             # 数据转置为原始方向
             np.transpose(data, self.save_axes[path])
             # 保存niigz文件
