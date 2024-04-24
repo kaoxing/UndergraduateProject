@@ -949,8 +949,6 @@ class nnUNetTrainer(object):
                 ax5.set_title('label')
                 plt.show()
                 plt.close()
-
-
         except Exception as e:
             print(e)
             traceback.print_exc()

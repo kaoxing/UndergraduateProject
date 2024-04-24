@@ -48,7 +48,7 @@ class nnUNetPredictor(object):
         self.allow_tqdm = allow_tqdm
 
         self.plans_manager, self.configuration_manager, self.list_of_parameters, self.network, self.dataset_json, \
-        self.trainer_name, self.allowed_mirroring_axes, self.label_manager = None, None, None, None, None, None, None, None
+            self.trainer_name, self.allowed_mirroring_axes, self.label_manager = None, None, None, None, None, None, None, None
 
         self.tile_step_size = tile_step_size
         self.use_gaussian = use_gaussian
@@ -128,7 +128,8 @@ class nnUNetPredictor(object):
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
         allow_compile = True
-        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
+        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (
+                    os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
         allow_compile = allow_compile and not isinstance(self.network, OptimizedModule)
         if isinstance(self.network, DistributedDataParallel):
             allow_compile = allow_compile and isinstance(self.network.module, OptimizedModule)
@@ -273,9 +274,9 @@ class nnUNetPredictor(object):
     def get_data_iterator_from_raw_npy_data(self,
                                             image_or_list_of_images: Union[np.ndarray, List[np.ndarray]],
                                             segs_from_prev_stage_or_list_of_segs_from_prev_stage: Union[None,
-                                                                                                        np.ndarray,
-                                                                                                        List[
-                                                                                                            np.ndarray]],
+                                            np.ndarray,
+                                            List[
+                                                np.ndarray]],
                                             properties_or_list_of_properties: Union[dict, List[dict]],
                                             truncated_ofname: Union[str, List[str], None],
                                             num_processes: int = 3):
@@ -312,9 +313,9 @@ class nnUNetPredictor(object):
     def predict_from_list_of_npy_arrays(self,
                                         image_or_list_of_images: Union[np.ndarray, List[np.ndarray]],
                                         segs_from_prev_stage_or_list_of_segs_from_prev_stage: Union[None,
-                                                                                                    np.ndarray,
-                                                                                                    List[
-                                                                                                        np.ndarray]],
+                                        np.ndarray,
+                                        List[
+                                            np.ndarray]],
                                         properties_or_list_of_properties: Union[dict, List[dict]],
                                         truncated_ofname: Union[str, List[str], None],
                                         num_processes: int = 3,
@@ -538,10 +539,91 @@ class nnUNetPredictor(object):
                                                   zip((sx, sy, sz), self.configuration_manager.patch_size)]]))
         return slicers
 
+    def compute_cam(self, batch, target=None):
+        """
+        用于计算cam热力图
+        :return:
+        """
+        from PIL import Image
+        from pytorch_grad_cam import GradCAMPlusPlus, ScoreCAM
+        from pytorch_grad_cam.utils.image import show_cam_on_image
+        import matplotlib.pyplot as plt
+        try:
+            import matplotlib
+            matplotlib.use('TKAgg')
+            # 打印出网络所有结构的名字
+            for name, module in self.network.named_modules():
+                print(name, module)
+            self.network.eval()
+            data = batch[0].unsqueeze(0)
+            if target is not None:
+                label = target[0][0].detach().cpu().numpy()
+            output = self.network(data)
+            normalized_masks = torch.nn.functional.softmax(output, dim=1).cpu()
+            sem_classes = [
+                'background', '1', '2', '3', '4', 'car', '6'
+            ]
+            sem_class_to_idx = {cls: idx for (idx, cls) in enumerate(sem_classes)}
+            car_category = sem_class_to_idx["car"]
+            car_mask = normalized_masks[0, :, :, :].argmax(0).detach().cpu().numpy()
+            # plt.imshow(car_mask, cmap='gray')
+            # plt.show()
+            car_mask_float = np.float32(car_mask == car_category)
+            if target is not None:
+                car_label_float = np.float32(label == car_category)
+
+            class SemanticSegmentationTarget:
+                def __init__(self, category, mask):
+                    self.category = category
+                    self.mask = torch.from_numpy(mask)
+                    if torch.cuda.is_available():
+                        self.mask = self.mask.cuda()
+
+                def __call__(self, model_output):
+                    print(model_output.shape)
+                    ret = (model_output[self.category, :, :] * self.mask).sum()
+                    # print(ret)
+                    return ret
+
+            target_layers = [self.network.decoder.stages[5].convs[1]]
+            targets = [SemanticSegmentationTarget(car_category, car_mask_float)]
+            with GradCAMPlusPlus(model=self.network,
+                                 target_layers=target_layers) as cam:
+                grayscale_cam = cam(input_tensor=data,
+                                    targets=targets)[0, :]
+                # plt.imshow(grayscale_cam, cmap='gray')
+                # plt.show()
+                grayscale_cam = grayscale_cam  # 可用
+                # data归一
+                data = data[0][0].detach().cpu().numpy()
+                data = (data - data.min()) / (data.max() - data.min())
+                # 通过matplotlib绘制热力图
+                if target is not None:
+                    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
+                else:
+                    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+                ax1.imshow(data, cmap='gray')
+                ax1.imshow(grayscale_cam, cmap='jet', alpha=0.7, interpolation='bilinear')
+                ax1.set_title('heatmap')
+                ax2.imshow(car_mask_float, cmap='gray')
+                ax2.set_title('seg_mask')
+                ax3.imshow(grayscale_cam, cmap='gray')
+                ax3.set_title('cam')
+                ax4.imshow(data, cmap='gray')
+                ax4.set_title('raw')
+                if target is not None:
+                    ax5.imshow(car_label_float, cmap='gray')
+                    ax5.set_title('label')
+                plt.show()
+                plt.close()
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
         prediction = self.network(x)
-
+        self.compute_cam(x)
         if mirror_axes is not None:
             # check for invalid numbers in mirror_axes
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
@@ -864,6 +946,7 @@ def predict_entry_point():
 if __name__ == '__main__':
     # predict a bunch of files
     from nnunetv2.paths import nnUNet_results, nnUNet_raw
+
     predictor = nnUNetPredictor(
         tile_step_size=0.5,
         use_gaussian=True,
@@ -873,10 +956,10 @@ if __name__ == '__main__':
         verbose=False,
         verbose_preprocessing=False,
         allow_tqdm=True
-        )
+    )
     predictor.initialize_from_trained_model_folder(
         join(nnUNet_results, 'Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres'),
-        use_folds=(0, ),
+        use_folds=(0,),
         checkpoint_name='checkpoint_final.pth',
     )
     predictor.predict_from_files(join(nnUNet_raw, 'Dataset003_Liver/imagesTs'),
@@ -887,12 +970,12 @@ if __name__ == '__main__':
 
     # predict a numpy array
     from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
+
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
     ret = predictor.predict_single_npy_array(img, props, None, None, False)
 
     iterator = predictor.get_data_iterator_from_raw_npy_data([img], None, [props], None, 1)
     ret = predictor.predict_from_data_iterator(iterator, False, 1)
-
 
     # predictor = nnUNetPredictor(
     #     tile_step_size=0.5,
@@ -914,4 +997,3 @@ if __name__ == '__main__':
     #                              num_processes_preprocessing=2, num_processes_segmentation_export=2,
     #                              folder_with_segs_from_prev_stage='/media/isensee/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres',
     #                              num_parts=1, part_id=0)
-
