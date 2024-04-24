@@ -42,6 +42,9 @@ class BaseModel(ABC):
         self.optimizers = []
         self.image_paths = []
         self.metric = 0  # used for learning rate policy 'plateau'
+        if not self.isTrain:
+            # 若不为训练，则需要存储输出并最终保存为多个nii.gz文件
+            self.output = {}  # key为文件名，value为输出的数据
 
     @staticmethod
     def modify_commandline_options(parser, is_train):

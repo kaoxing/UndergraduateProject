@@ -64,7 +64,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.compute_cam(data,target)
+        self.compute_cam(data, batch['keys'][0], target)
 
         self.optimizer.zero_grad()
 

@@ -1,6 +1,7 @@
 # author:kaoxing
 # date: 2024/4/19
 
+from CycleGanDataPreprogress import CycleGANDataPreprocessor
 import os
 import torch
 from data.base_dataset import BaseDataset, get_transform
@@ -11,96 +12,200 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def letterbox_image(image, size):
-    """
-    保持比例的图像缩放用：代替了传统的resize方式
-    对图片加以灰色背景，补全较目标比例相差的边缘部分。
-    该函数只能处理单张图片
-    :param image: 原始图片
-    :param size: 目标图像宽高的元组
-    :return: 缩放到size后的目标图像
-    """
-    ret = []
-    for img in image:
-        minValue = min(size)
-        img = Image.fromarray(img)
+class letterbox_image:
+    def __init__(self, size):
+        self.size = (size, size)
+
+    def __call__(self, image: torch.Tensor):
+        """
+        保持比例的图像缩放用：代替了传统的resize方式
+        对图片加以灰色背景，补全较目标比例相差的边缘部分。
+        该函数只能处理单张图片
+        :param image: 原始图片 Tensor
+        :param size: 目标图像宽高的元组
+        :return: 缩放到size后的目标图像 Tensor
+        """
+        # Tensor转为ndarray
+        image: np.ndarray = image.cpu().numpy()
+        minValue = image.min()
+        img = Image.fromarray(image[0])  # tensor自动增加0维，不符合Image格式
         iw, ih = img.size
-        w, h = size
+        # 若原图两轴差距有一倍以上，则将较小的轴放大一倍
+        if iw / ih > 2 or ih / iw > 2:
+            if iw > ih:
+                img = img.resize((iw, ih * 2))  # 若宽度大于高度，则高度放大一倍
+            else:
+                img = img.resize((iw * 2, ih))  # 若高度大于宽度，则宽度放大一倍
+            iw, ih = img.size
+        w, h = self.size
         scale = min(w / iw, h / ih)
         nw = int(iw * scale)
         nh = int(ih * scale)
         # 此时为按比例缩放，为torch提供的函数
-        img = img.resize((nw, nh), Image.BICUBIC)
+        img = img.resize((nw, nh))
         # 构建新的RGB背景图片
-        new_image = Image.new(img.mode, size, minValue)
+        new_image = Image.new(img.mode, self.size, minValue)
         # 缩放后的图片粘贴至背景图片上
         '''参数可选4元组及2元组，如果选择2元组，则为新图片相当于背景图片的左上角坐标'''
         new_image.paste(img, ((w - nw) // 2, (h - nh) // 2))
-        ret.append(np.asarray(new_image))
-    return np.asarray(ret)
+        img = np.asarray(new_image)
+        # ndarray转为Tensor
+        img = torch.from_numpy(img).cuda()
+        # 还原被去掉的0维
+        return img.unsqueeze(0)
 
 
-def reverse_letterbox_image(image, raw_size):
-    """
-    逆letterbox_image，将图像还原为原始大小
-    :param raw_size: 原始大小
-    :param image: ndarray
-    :return:
-    """
-    ret = []
-    for img in image:
-        img = Image.fromarray(img)
-        # 计算原始图像缩放后的大小
-        iw, ih = raw_size
-        w, h = img.size
-        scale = min(w / iw, h / ih)
-        nw = int(iw * scale)
-        nh = int(ih * scale)
-        # 裁剪图像
-        img = img.crop(((w - nw) // 2, (h - nh) // 2, (w + nw) // 2, (h + nh) // 2))
-        # 将图像还原为原始大小
-        img = img.resize(raw_size, Image.BICUBIC)
-        ret.append(np.asarray(img))
-    return np.asarray(ret)
+class reverse_letterbox_image:
+
+    def __call__(self, image: torch.Tensor, raw_size):
+        """
+        逆letterbox_image，将图像还原为原始大小
+        :param raw_size: 原始大小
+        :param image: Tensor
+        :return: ndarray
+        """
+        image = image.cpu().numpy()
+        ret = []
+        for img in image:
+            img = Image.fromarray(img)
+            # 计算原始图像缩放后的大小
+            iw, ih = raw_size
+            w, h = img.size
+            scale = min(w / iw, h / ih)
+            nw = int(iw * scale)
+            nh = int(ih * scale)
+            # 裁剪图像
+            img = img.crop(((w - nw) // 2, (h - nh) // 2, (w + nw) // 2, (h + nh) // 2))
+            # 将图像还原为原始大小
+            img = img.resize(raw_size)
+            ret.append(np.asarray(img))
+        return np.asarray(ret)
 
 
-class niiGzTestDataset(BaseDataset):
-    # 读取nnUNet处理后的数据
+class niiGzTrainDataset(BaseDataset):
+    # 读取niigz数据
+    @staticmethod
+    def modify_commandline_options(parser, is_train):
+        """Add new dataset-specific options, and rewrite default values for existing options.
+
+        Parameters:
+            parser          -- original option parser
+            is_train (bool) -- whether training phase or test phase. You can use this flag to add training-specific or test-specific options.
+
+        Returns:
+            the modified parser.
+            :param parser:
+        """
+        parser.add_argument('result_dir', type=str, help='path to save nii.gz')
+        return parser
 
     def __init__(self, opt):
         BaseDataset.__init__(self, opt)
         print("niiGzDataset")
         self.paths = opt.dataroot
-        self.mean = opt.mean
-        self.std = opt.std
+
         # 获取testA,testB的文件.niigz
         self.dir_A = str(os.path.join(opt.dataroot, opt.phase + 'A'))  # create a path '/path/to/data/trainA'
         self.dir_B = str(os.path.join(opt.dataroot, opt.phase + 'B'))  # create a path '/path/to/data/trainB'
-        self.paths_tra = [os.path.join(self.dir_A, i) for i in os.listdir(self.dir_A)]
-        self.paths_trb = [os.path.join(self.dir_B, i) for i in os.listdir(self.dir_B)]
+        self.tra = [os.path.join(self.dir_A, i) for i in os.listdir(self.dir_A)]
+        self.trb = [os.path.join(self.dir_B, i) for i in os.listdir(self.dir_B)]
+        # 将.nii.gz和.npy文件分离
+        self.paths_tra = [i for i in self.tra if i.endswith('.nii.gz')]
+        self.paths_trb = [i for i in self.trb if i.endswith('.nii.gz')]
 
-        self.transform = [transforms.ToTensor()]
+        # 读取数据,将数据读取为数组,为了方便按index读取，将多个三维数组按通道拼接为一个三维数组
+        self.p = CycleGANDataPreprocessor()
+        self.tra = []
+        self.data_nums_a = [0] # 保存nii.gz文件的数据量
+        self.save_axes = {}  # 保存转置
+        self.niiGzInfo = {}  # 保存nii.gz文件的信息
+        for path in self.paths_tra:
+            niigz = sitk.ReadImage(path)
+            data = sitk.GetArrayFromImage(niigz).astype(np.float32)
+            # 通过CycleGANDataPreprocessor获取转置方向
+            temp = self.p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = self.p.norm_direction(data, temp)
+            self.save_axes[path] = axes # 保存转置方向
+            data = np.transpose(data, axes)
+            self.tra.extend(data)
+            self.data_nums_a.append(self.data_nums_a[-1]+data.shape[0])
+            self.niiGzInfo[path] = {
+                'origin': niigz.GetOrigin(),
+                'spacing': niigz.GetSpacing(),
+                'direction': niigz.GetDirection()
+            }
+        # os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        # self.p.plot_image(self.tra[100])
+        # self.p.plot_image(self.tra[150])
+        # self.p.plot_image(self.tra[300])
+        # self.p.plot_image(self.tra[400])
+        self.trb = []
+        for path in self.paths_trb:
+            niigz = sitk.ReadImage(path)
+            data = sitk.GetArrayFromImage(niigz).astype(np.float32)
+            # 通过CycleGANDataPreprocessor获取转置方向
+            temp = self.p.get_norm_target(path.replace('.nii.gz', '.npy'))
+            axes = self.p.norm_direction(data, temp)
+            self.save_axes[path] = axes  # 保存转置方向
+            data = np.transpose(data, axes)
+            self.trb.extend(data)
+            self.data_nums_b.append(self.data_nums_b[-1]+data.shape[0])
+            self.niiGzInfo[path] = {
+                'origin': niigz.GetOrigin(),
+                'spacing': niigz.GetSpacing(),
+                'direction': niigz.GetDirection()
+            }
+        # self.p.plot_image(self.trb[100])
+        # self.p.plot_image(self.trb[150])
+        # self.p.plot_image(self.trb[300])
+        # self.p.plot_image(self.trb[400])
+        # 分别计算CT和MRI的mean和std
+        self.mean_a = np.mean(self.tra)
+        self.std_a = np.std(self.tra)
+        self.mean_b = np.mean(self.trb)
+        self.std_b = np.std(self.trb)
+        # 数据transform
+        self.transform_A = [transforms.ToTensor()]
+        self.transform_B = [transforms.ToTensor()]
+        assert self.tra[0].shape[1:] == (opt.load_size, opt.load_size), "输入图像的shape应当与load_size相同"
+        assert self.trb[0].shape[1:] == (opt.load_size, opt.load_size), "输入图像的shape应当与load_size相同"
         if opt.norm:
-            self.transform.append(transforms.Normalize((self.mean,), (self.std,)))
-        self.transform.append(transforms.Lambda(lambda x: letterbox_image(x, (opt.load_size, opt.load_size))))
-        self.transform = transforms.Compose(self.transform)
+            self.transform_A.append(transforms.Normalize((self.mean_a,), (self.std_a,)))
+            self.transform_B.append(transforms.Normalize((self.mean_b,), (self.std_b,)))
+        self.transform_A = transforms.Compose(self.transform_A)
+        self.transform_B = transforms.Compose(self.transform_B)
+        # 数据transform
+        for i in range(len(self)):
+            self.tra[i] = self.transform_A(self.tra[i])
+            self.trb[i] = self.transform_B(self.trb[i])
 
     def __getitem__(self, index):
-        # 读取.niigz并transform，一次返回一整个3D图像以及info
-        img_a = sitk.ReadImage(self.paths_tra[index])
-        img_b = sitk.ReadImage(self.paths_trb[index])
-        arr_a = sitk.GetArrayFromImage(img_a)
-        arr_b = sitk.GetArrayFromImage(img_b)
-        # 数据transform
-        arr_a = self.transform(arr_a)
-        arr_b = self.transform(arr_b)
+        # 读取.niigz并transform，一次返回一整个3D图像
+        arr_a = self.tra[index]
+        arr_b = self.trb[index]
+        # 计算index在哪个nii.gz文件中
+        path_a = ""
+        path_b = ""
+        for i in range(len(self.data_nums_a)):
+            if index < self.data_nums_a[i]:
+                path_a = self.paths_tra[i]
+                break
+        for i in range(len(self.data_nums_b)):
+            if index < self.data_nums_b[i]:
+                path_b = self.paths_trb[i]
+                break
+        # os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        # self.p.plot_image(arr_a.cpu().numpy()[0])
+        # self.p.plot_image(arr_b.cpu().numpy()[0])
         return {
-            'img_A': img_a,
-            'img_B': img_b,
-            'arr_A': arr_a,
-            'arr_B': arr_b,
-            'path_A': self.paths_tra[index],
-            'path_B': self.paths_trb[index]
+            'A': arr_a,
+            'B': arr_b,
+            'A_paths': path_a,
+            'B_paths': path_b,
+            'A_axes': self.save_axes[path_a],
+            'B_axes': self.save_axes[path_b],
+            'A_niiGzInfo': self.niiGzInfo[path_a],
+            'B_niiGzInfo': self.niiGzInfo[path_b]
         }
 
     def __len__(self):
@@ -108,10 +213,13 @@ class niiGzTestDataset(BaseDataset):
 
 
 if __name__ == '__main__':
-    img = np.zeros((100, 100), dtype=np.int16)
-    img[:, :] = 255
-    img[10:90, 10:90] = 500
-    plt.imshow(letterbox_image(img, (200, 150)))
+    img = np.zeros((30, 100, 100), dtype=np.float32)
+    img[:, :, :] = 255
+    img[:, 10:90, 10:90] = 500
+    plt.imshow(img[0], cmap='gray')
     plt.show()
-    plt.imshow(reverse_letterbox_image(letterbox_image(img, (200, 150)), (100, 100)))
+    img = torch.from_numpy(img).cuda()
+    plt.imshow(letterbox_image(img, (200, 150)).cpu().numpy()[0], cmap='gray')
+    plt.show()
+    plt.imshow(reverse_letterbox_image(letterbox_image(img, (200, 150)), (100, 100))[0], cmap='gray')
     plt.show()

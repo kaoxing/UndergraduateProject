@@ -82,6 +82,7 @@ class nnUNetTrainer(object):
 
         # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
 
+        self.cnt = 0
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
 
@@ -876,7 +877,7 @@ class nnUNetTrainer(object):
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
-    def compute_cam(self, batch, target=None):
+    def compute_cam(self, batch, path: str = None, target=None):
         """
         用于计算cam热力图
         :return:
@@ -885,12 +886,13 @@ class nnUNetTrainer(object):
         from pytorch_grad_cam import GradCAMPlusPlus, ScoreCAM
         from pytorch_grad_cam.utils.image import show_cam_on_image
         import matplotlib.pyplot as plt
+
         try:
             import matplotlib
             matplotlib.use('TKAgg')
             # 打印出网络所有结构的名字
-            for name, module in self.network.named_modules():
-                print(name, module)
+            # for name, module in self.network.named_modules():
+            #     print(name, module)
             self.network.eval()
             data = batch[0].unsqueeze(0)
             if target is not None:
@@ -922,7 +924,7 @@ class nnUNetTrainer(object):
                     # print(ret)
                     return ret
 
-            target_layers = [self.network.decoder.stages[5].convs[1]]
+            target_layers = [self.network.decoder.stages[6].convs[1]]
             targets = [SemanticSegmentationTarget(car_category, car_mask_float)]
             with GradCAMPlusPlus(model=self.network,
                                  target_layers=target_layers) as cam:
@@ -934,27 +936,39 @@ class nnUNetTrainer(object):
                 # data归一
                 data = data[0][0].detach().cpu().numpy()
                 data = (data - data.min()) / (data.max() - data.min())
-                # 通过matplotlib绘制热力图
-                plt.xticks([])
-                plt.yticks([])
+                # 通过matplotlib绘制热力图,去除坐标轴
+                fig, axs = plt.subplots(2, 3)
+                plt.subplot(2, 3, 1)
+                plt.imshow(np.array(Image.fromarray(data).resize((512, 512))), cmap='gray')
+                plt.imshow(np.array(Image.fromarray(grayscale_cam).resize((512, 512))), cmap='jet', alpha=0.7,
+                           interpolation='bilinear')
+                plt.axis('off')
+                axs[0][0].set_title('heatmap')
+                plt.subplot(2, 3, 2)
+                plt.imshow(np.array(Image.fromarray(car_mask_float).resize((512, 512))), cmap='gray')
+                plt.axis('off')
+                axs[0][1].set_title('seg_mask')
+                plt.subplot(2, 3, 3)
+                plt.imshow(np.array(Image.fromarray(grayscale_cam).resize((512, 512))), cmap='gray')
+                plt.axis('off')
+                axs[0][2].set_title('cam')
+                plt.subplot(2, 3, 4)
+                plt.imshow(np.array(Image.fromarray(data).resize((512, 512))), cmap='gray')
+                plt.axis('off')
+                axs[1][0].set_title('raw')
                 if target is not None:
-                    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
-                else:
-                    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
-                ax1.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
-                ax1.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='jet', alpha=0.7, interpolation='bilinear')
-                ax1.set_title('heatmap')
-                ax2.imshow(Image.fromarray(car_mask_float).resize((512,512)), cmap='gray')
-                ax2.set_title('seg_mask')
-                ax3.imshow(Image.fromarray(grayscale_cam).resize((512,512)), cmap='gray')
-                ax3.set_title('cam')
-                ax4.imshow(Image.fromarray(data).resize((512,512)), cmap='gray')
-                ax4.set_title('raw')
-                if target is not None:
-                    ax5.imshow(Image.fromarray(car_label_float).resize((512,512)), cmap='gray')
-                    ax5.set_title('label')
-                plt.show()
-                plt.close()
+                    plt.subplot(2, 3, 5)
+                    plt.imshow(np.array(Image.fromarray(car_label_float).resize((512, 512))), cmap='gray')
+                    plt.axis('off')
+                    axs[1][1].set_title('label')
+                axs[1][2].set_title("decoder.stages[6].convs[1]")
+                plt.tight_layout()
+                # plt.show()
+                plt.savefig(
+                    rf"D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_results\Dataset602_MMWHS2017_CT\热力图\{path}_{self.cnt}_decoder.stages[6].convs[1].png",
+                    dpi=1800)
+                plt.close("all")
+                self.cnt += 1
         except Exception as e:
             print(e)
             traceback.print_exc()

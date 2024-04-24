@@ -13,7 +13,7 @@ import tqdm
 
 class CycleGANDataPreprocessor:
     def __init__(self):
-        self.size = 488
+        self.size = 384
         self.ct_result_dir = 'CimageTr'
         self.label_result_dir = 'ClabelTr'
         self.ct_dir = r'D:\pythonProject\UndergraduateProject\data\nnUNet_data\nnUNet_raw\Dataset602_MMWHS2017_CT'
@@ -43,7 +43,7 @@ class CycleGANDataPreprocessor:
             if np.max(labels[i]) > 0 and np.max(labels[i + 30]) > 0:
                 start = i
                 break
-        for i in range(start+30, len(labels)):
+        for i in range(start + 30, len(labels)):
             if np.max(labels[i]) == 0:
                 end = i
                 break
@@ -273,33 +273,43 @@ class CycleGANDataPreprocessor:
         self.handle_CT(p_num)
 
 
-if __name__ == '__main__':
-    # 处理CT和MRI数据作为有效的cycleGan数据集
+def prepare_target():
+    # 保存用于匹配方向的target图像, 先处理CT图像
+    p = CycleGANDataPreprocessor()
+    p.make_dir()
+    ct_paths = [os.path.join(p.ct_dir, p.train_name, i) for i in os.listdir(os.path.join(p.ct_dir, p.train_name))]
+    cts = [sitk.GetArrayFromImage(sitk.ReadImage(i)) for i in ct_paths]
+    for i in range(len(cts)):
+        p.save_norm_target(cts[i], 280, ct_paths[i], axes=(1, 0, 2))
+        # p.plot_image(cts[i][150])
+
+    # 再处理MRI图像 01 11 23 33 43 53 63 73 81 93 103 111 121 131 143 153 163 173 183 193
+    mri_dict = {
+        0: 1, 1: 1, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 1, 9: 3, 10: 3, 11: 1, 12: 1, 13: 1, 14: 3, 15: 3, 16: 3,
+        17: 3,
+        18: 3, 19: 3
+    }
+    p.ct_dir = p.mri_dir
+    p.make_dir()
+    ct_paths = [os.path.join(p.ct_dir, p.train_name, i) for i in os.listdir(os.path.join(p.ct_dir, p.train_name))]
+    cts = [sitk.GetArrayFromImage(sitk.ReadImage(i)) for i in ct_paths]
+    for i in range(len(cts)):
+        direction = mri_dict[i]
+        if direction == 1:
+            p.save_norm_target(cts[i], 100, ct_paths[i], axes=(0, 1, 2))
+        elif direction == 3:
+            p.save_norm_target(cts[i], 100, ct_paths[i], axes=(2, 1, 0))
+
+
+def handle_data():
     p = CycleGANDataPreprocessor()
     p.make_dir()
     p.handle_CT(4)
     p.handle_MRI(4)
+
+
+if __name__ == '__main__':
+    # 处理CT和MRI数据作为有效的cycleGan数据集
+    prepare_target()
+    handle_data()
     print('done')
-    # p = CycleGANDataPreprocessor()
-    # 保存用于匹配方向的target图像, 先处理CT图像
-    # ct_paths = [os.path.join(p.ct_dir, p.train_name, i) for i in os.listdir(os.path.join(p.ct_dir, p.train_name))]
-    # cts = [sitk.GetArrayFromImage(sitk.ReadImage(i)) for i in ct_paths]
-    # for i in range(len(cts)):
-    #     p.save_norm_target(cts[i], 280, ct_paths[i], axes=(1, 0, 2))
-    #     # p.plot_image(cts[i][150])
-
-    # 再处理MRI图像 01 11 23 33 43 53 63 73 81 93 103 111 121 131 143 153 163 173 183 193
-    # mri_dict = {
-    #     0: 1, 1: 1, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 1, 9: 3, 10: 3, 11: 1, 12: 1, 13: 1, 14: 3, 15: 3, 16: 3, 17: 3,
-    #     18: 3, 19: 3
-    # }
-    # p.ct_dir = p.mri_dir
-    # ct_paths = [os.path.join(p.ct_dir, p.train_name, i) for i in os.listdir(os.path.join(p.ct_dir, p.train_name))]
-    # cts = [sitk.GetArrayFromImage(sitk.ReadImage(i)) for i in ct_paths]
-    # for i in range(len(cts)):
-    #     direction = mri_dict[i]
-    #     if direction == 1:
-    #         p.save_norm_target(cts[i], 100, ct_paths[i], axes=(0, 1, 2))
-    #     elif direction == 3:
-    #         p.save_norm_target(cts[i], 100, ct_paths[i], axes=(2, 1, 0))
-
