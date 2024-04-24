@@ -142,7 +142,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 6
+        self.num_epochs = 100
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -876,33 +876,84 @@ class nnUNetTrainer(object):
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
-    def compute_cam(self, batch):
+    def compute_cam(self, batch, target):
         """
         用于计算cam热力图
         :return:
         """
-        from torchcam.methods import ScoreCAM
+        from PIL import Image
+        from pytorch_grad_cam import GradCAMPlusPlus,ScoreCAM
+        from pytorch_grad_cam.utils.image import show_cam_on_image
         import matplotlib.pyplot as plt
-        import matplotlib
-        matplotlib.use('Agg')
-        self.network.eval()
-        # 打印出网络所有结构的名字
         try:
+            import matplotlib
+            matplotlib.use('TKAgg')
+            # 打印出网络所有结构的名字
             for name, module in self.network.named_modules():
                 print(name, module)
-            for data in batch:
-                data = data.unsqueeze(0)
-                with torch.no_grad():
-                    out = self.network(data)
+            self.network.eval()
+            data = batch[0].unsqueeze(0)
+            label = target[0][0].detach().cpu().numpy()
+            output = self.network(data)
+            normalized_masks = torch.nn.functional.softmax(output, dim=1).cpu()
+            sem_classes = [
+                'background', '1', '2', '3', '4', 'car', '6'
+            ]
+            sem_class_to_idx = {cls: idx for (idx, cls) in enumerate(sem_classes)}
+            car_category = sem_class_to_idx["car"]
+            car_mask = normalized_masks[0, :, :, :].argmax(0).detach().cpu().numpy()
+            # plt.imshow(car_mask, cmap='gray')
+            # plt.show()
+            car_mask_float = np.float32(car_mask == car_category)
+            car_label_float = np.float32(label == car_category)
 
-                    cam_extractor = ScoreCAM(self.network, target_layer='decoder.seg_layers.0', batch_size=1, input_shape=out[0].shape)
-                    cams = cam_extractor(out.squeeze(0).item(), out)
-                    for cam in cams:
-                        print(cam.shape)
+            class SemanticSegmentationTarget:
+                def __init__(self, category, mask):
+                    self.category = category
+                    self.mask = torch.from_numpy(mask)
+                    if torch.cuda.is_available():
+                        self.mask = self.mask.cuda()
+
+                def __call__(self, model_output):
+                    print(model_output.shape)
+                    ret = (model_output[self.category, :, :] * self.mask).sum()
+                    print(ret)
+                    return ret
+
+            target_layers = [self.network.decoder.stages[6].convs[1]]
+            targets = [SemanticSegmentationTarget(car_category, car_mask_float)]
+            with GradCAMPlusPlus(model=self.network,
+                         target_layers=target_layers) as cam:
+                grayscale_cam = cam(input_tensor=data,
+                                    targets=targets)[0, :]
+                # plt.imshow(grayscale_cam, cmap='gray')
+                # plt.show()
+                grayscale_cam = grayscale_cam # 可用
+                # data归一
+                data = data[0][0].detach().cpu().numpy()
+                data = (data - data.min()) / (data.max() - data.min())
+                # 通过matplotlib绘制热力图
+
+                # plt.close()
+                fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(1,5)
+                ax1.imshow(data, cmap='gray')
+                ax1.imshow(grayscale_cam, cmap='jet', alpha=0.7, interpolation='bilinear')
+                ax1.set_title('heatmap')
+                ax2.imshow(car_mask_float, cmap='gray')
+                ax2.set_title('seg_mask')
+                ax3.imshow(grayscale_cam, cmap='gray')
+                ax3.set_title('cam')
+                ax4.imshow(data, cmap='gray')
+                ax4.set_title('raw')
+                ax5.imshow(car_label_float, cmap='gray')
+                ax5.set_title('label')
+                plt.show()
+                plt.close()
+
+
         except Exception as e:
             print(e)
             traceback.print_exc()
-
 
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -917,7 +968,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        # self.compute_cam(data)
+        self.compute_cam(data, target)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
@@ -928,12 +979,14 @@ class nnUNetTrainer(object):
             output = self.network(data)
 
             # print("output.shape:",output)
-            import matplotlib.pyplot as plt
-            import matplotlib
-            matplotlib.use("TkAgg")
-            for i in range(len(output[0])):
-                plt.imshow(output[0][i].cpu().detach().numpy(), cmap='gray')
-                plt.show()
+            # import matplotlib.pyplot as plt
+            # import matplotlib
+            # matplotlib.use("TkAgg")
+            # for i in range(1, len(output[0])):
+            #     img: np.ndarray = output[0][i].cpu().detach().numpy()
+            #     img = img.clip(0, 1)
+            #     plt.imshow(img, cmap='gray')
+            #     plt.show()
             # plt.imshow(target[0][0].cpu().detach().numpy(), cmap='gray')
             # plt.show()
             # del data
@@ -1142,7 +1195,8 @@ class nnUNetTrainer(object):
             new_state_dict[key] = value
 
         self.my_init_kwargs = checkpoint['init_args']
-        self.current_epoch = checkpoint['current_epoch']
+        # self.current_epoch = checkpoint['current_epoch']
+        self.current_epoch = 5
         self.logger.load_checkpoint(checkpoint['logging'])
         self._best_ema = checkpoint['_best_ema']
         self.inference_allowed_mirroring_axes = checkpoint[
@@ -1294,27 +1348,24 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()
 
-
-
-
     def run_training(self):
         self.on_train_start()
 
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
-            self.on_train_epoch_start()
-            train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
-                train_outputs.append(self.train_step(next(self.dataloader_train)))
-            self.on_train_epoch_end(train_outputs)
+            # self.on_train_epoch_start()
+            # train_outputs = []
+            # for batch_id in range(self.num_iterations_per_epoch):
+            #     train_outputs.append(self.train_step(next(self.dataloader_train)))
+            # self.on_train_epoch_end(train_outputs)
 
-            with torch.no_grad():
-                self.on_validation_epoch_start()
-                val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
-                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
-                self.on_validation_epoch_end(val_outputs)
+            # with torch.no_grad():
+            self.on_validation_epoch_start()
+            val_outputs = []
+            for batch_id in range(self.num_val_iterations_per_epoch):
+                val_outputs.append(self.validation_step(next(self.dataloader_val)))
+            self.on_validation_epoch_end(val_outputs)
 
             self.on_epoch_end()
 

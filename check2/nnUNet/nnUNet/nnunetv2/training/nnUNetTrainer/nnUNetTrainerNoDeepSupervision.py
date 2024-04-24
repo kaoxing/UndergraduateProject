@@ -64,6 +64,8 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
 
+        self.compute_cam(data,target)
+
         self.optimizer.zero_grad()
 
         # Autocast is a little bitch.
@@ -82,9 +84,16 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
             predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
         else:
             # no need for softmax
+            # import matplotlib.pyplot as plt
+            # import matplotlib
+            # matplotlib.use('TKAgg')
             output_seg = output.argmax(1)[:, None]
+            # plt.imshow(output_seg[0][0].detach().cpu().numpy(), cmap='gray')
+            # plt.show()
             predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+            # plt.imshow(output_seg[0][0].detach().cpu().numpy(), cmap='gray')
+            # plt.show()
             del output_seg
 
         if self.label_manager.has_ignore_label:
