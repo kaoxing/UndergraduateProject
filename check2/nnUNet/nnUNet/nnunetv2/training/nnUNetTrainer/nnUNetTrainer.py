@@ -935,6 +935,8 @@ class nnUNetTrainer(object):
                 data = data[0][0].detach().cpu().numpy()
                 data = (data - data.min()) / (data.max() - data.min())
                 # 通过matplotlib绘制热力图
+                plt.xticks([])
+                plt.yticks([])
                 if target is not None:
                     fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
                 else:
