@@ -55,6 +55,7 @@ class CycleGANModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
+        self.is_end = False
         self.niigz_info = {}
         self.save_axes = {}
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
@@ -115,8 +116,10 @@ class CycleGANModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = (input['A_paths'], input['B_paths'])
-        self.save_axes[input['A_paths']] = input['A_axes']  # 保存恢复原数据需要的转置参数
-        self.niigz_info[input['A_paths']] = input['A_niiGzInfo']  # 保存存储数据需要的参数
+        if not self.isTrain:
+            self.save_axes[input['A_paths']] = input['A_axes']  # 保存恢复原数据需要的转置参数
+            self.niigz_info[input['A_paths']] = input['A_niiGzInfo']  # 保存存储数据需要的参数
+            self.is_end = input['is_end']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
@@ -151,8 +154,9 @@ class CycleGANModel(BaseModel):
             img.SetDirection(self.niigz_info[path]['direction'])
             img.SetOrigin(self.niigz_info[path]['origin'])
             img.SetSpacing(self.niigz_info[path]['spacing'])
-            path = path.replace('trainA').replace(self.opt.result_dir)
+            path = path.replace('trainA', self.opt.result_dir)
             sitk.WriteImage(img, path)
+        output = {}
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator

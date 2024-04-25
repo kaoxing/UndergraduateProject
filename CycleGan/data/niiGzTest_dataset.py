@@ -186,9 +186,12 @@ class niiGzTrainDataset(BaseDataset):
         # 计算index在哪个nii.gz文件中
         path_a = ""
         path_b = ""
+        is_end = False
         for i in range(len(self.data_nums_a)):
             if index < self.data_nums_a[i]:
                 path_a = self.paths_tra[i]
+                if index == self.data_nums_a[i]-1:
+                    is_end = True
                 break
         for i in range(len(self.data_nums_b)):
             if index < self.data_nums_b[i]:
@@ -205,11 +208,23 @@ class niiGzTrainDataset(BaseDataset):
             'A_axes': self.save_axes[path_a],
             'B_axes': self.save_axes[path_b],
             'A_niiGzInfo': self.niiGzInfo[path_a],
-            'B_niiGzInfo': self.niiGzInfo[path_b]
+            'B_niiGzInfo': self.niiGzInfo[path_b],
+            'is_end': is_end
         }
 
     def __len__(self):
         return min(len(self.tra), len(self.trb))
+
+    def collate_fn(self, batch):
+        """
+        用于DataLoader的collate_fn参数，以便仅将'A'和'B'的数据转为Tensor，而其他的数据不变
+        :return:
+        """
+        batch[0]['A'] = batch[0]['A'].unsqueeze(0)
+        batch[0]['B'] = batch[0]['B'].unsqueeze(0)
+        return batch[0]
+
+
 
 
 if __name__ == '__main__':

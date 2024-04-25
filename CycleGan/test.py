@@ -87,7 +87,7 @@ if __name__ == '__main__':
         model.set_input(data)  # unpack data from data loader
         model.test()  # run inference
         # 若model类为CycleGAN，则需要将输出的数据保存为niigz文件
-        if opt.model == 'cycle_gan':
+        if opt.model == 'cycle_gan' and model.is_end:
             model.save_niigz()
         visuals = model.get_current_visuals()  # get image results
         img_path = model.get_image_paths()  # get image paths
