@@ -100,14 +100,18 @@ class CycleGANDataPreprocessor:
         img = [Image.fromarray(i).crop(bbox) for i in image]
         return np.asarray(img)
 
-    def reshape_images(self, image, size):
+    def reshape_images(self, image, size, mode=None):
         """
         将图片reshape为size大小
+        :param mode: 插值方式
         :param image: 图片 list ndarray
         :param size: 目标大小
         :return: reshape后的图片
         """
-        img = [Image.fromarray(i).resize(size) for i in image]
+        if mode == 'nearest':
+            img = [Image.fromarray(i).resize(size, Image.NEAREST) for i in image]
+        else:
+            img = [Image.fromarray(i).resize(size) for i in image]
         return np.asarray(img)
 
     def save_image(self, image, path):

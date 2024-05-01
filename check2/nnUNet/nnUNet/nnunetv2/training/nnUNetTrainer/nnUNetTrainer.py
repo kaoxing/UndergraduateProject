@@ -47,7 +47,7 @@ from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
-from nnunetv2.training.lr_scheduler.polylr import
+from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
@@ -143,7 +143,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 100
+        self.num_epochs = 99
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -986,7 +986,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.compute_cam(data, target)
+        # self.compute_cam(data, target)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
@@ -1214,7 +1214,7 @@ class nnUNetTrainer(object):
 
         self.my_init_kwargs = checkpoint['init_args']
         # self.current_epoch = checkpoint['current_epoch']
-        self.current_epoch = 5
+        self.current_epoch = 99
         self.logger.load_checkpoint(checkpoint['logging'])
         self._best_ema = checkpoint['_best_ema']
         self.inference_allowed_mirroring_axes = checkpoint[
@@ -1372,18 +1372,45 @@ class nnUNetTrainer(object):
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
-            # self.on_train_epoch_start()
-            # train_outputs = []
-            # for batch_id in range(self.num_iterations_per_epoch):
-            #     train_outputs.append(self.train_step(next(self.dataloader_train)))
-            # self.on_train_epoch_end(train_outputs)
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                train_outputs.append(self.train_step(next(self.dataloader_train)))
+            self.on_train_epoch_end(train_outputs)
 
-            # with torch.no_grad():
-            self.on_validation_epoch_start()
-            val_outputs = []
-            for batch_id in range(self.num_val_iterations_per_epoch):
-                val_outputs.append(self.validation_step(next(self.dataloader_val)))
-            self.on_validation_epoch_end(val_outputs)
+            with torch.no_grad():
+                self.on_validation_epoch_start()
+                val_outputs = []
+                for batch_id in range(self.num_val_iterations_per_epoch):
+                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                self.on_validation_epoch_end(val_outputs)
+
+            self.on_epoch_end()
+
+        self.on_train_end()
+
+    def run_training_cycle(self):
+        """
+        特征循环模型训练，需要将上一次迭代的结果加入下一次迭代的输入，首次迭代时添加的输入为高斯噪声
+        :return:
+        """
+        self.on_train_start()
+
+        for epoch in range(self.current_epoch, self.num_epochs):
+            self.on_epoch_start()
+
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                train_outputs.append(self.train_step(next(self.dataloader_train)))
+            self.on_train_epoch_end(train_outputs)
+
+            with torch.no_grad():
+                self.on_validation_epoch_start()
+                val_outputs = []
+                for batch_id in range(self.num_val_iterations_per_epoch):
+                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                self.on_validation_epoch_end(val_outputs)
 
             self.on_epoch_end()
 
